@@ -1,0 +1,7 @@
+{
+  "description": "All 1802 official theory-test questions with the correct answer, offline",
+  "icon": "BookOpen",
+  "sharedLibs": [
+    "android-feedback-lib"
+  ]
+}
