@@ -2,7 +2,8 @@
 """Regenerate mobile/app/src/main/assets/{questions.json,img/} from the official
 Ministry of Transport theory bank (data.gov.il dataset "tqhe", datastore API).
 
-Only the correct answer is kept (the one gov.il highlights in yellow). A few
+Each question keeps its four options in the official order plus the index of
+the correct one (the one gov.il highlights in yellow). A few
 records in the official data carry a broken <img src>; their real URLs are
 listed in IMAGE_OVERRIDES (found by probing gov.il, verified by eye).
 """
@@ -30,10 +31,12 @@ def main():
     for r in records:
         m = re.match(r"\s*(\d+)\.\s*(.*)", r["title2"], re.S)
         n, d = int(m.group(1)), r["description4"]
-        answer = re.search(r'<span id="correctAnswer\d+">(.*?)</span>', d, re.S)
-        if not answer:
-            raise SystemExit(f"question {n}: no correct answer marked")
-        item = {"n": n, "q": clean(m.group(2)), "a": clean(answer.group(1)), "c": r["category"],
+        spans = re.findall(r"<li><span( id=\"correctAnswer\d+\")?>(.*?)</span></li>", d, re.S)
+        correct = [k for k, (marked, _) in enumerate(spans) if marked]
+        if len(spans) != 4 or len(correct) != 1:
+            raise SystemExit(f"question {n}: expected 4 options with one correct, got {len(spans)}/{len(correct)}")
+        item = {"n": n, "q": clean(m.group(2)), "o": [clean(t) for _, t in spans], "k": correct[0],
+                "c": r["category"],
                 # the source mixes a Cyrillic "В" in for licence B
                 "l": [x.replace("В", "B") for x in re.findall(r"«(\w+)»", d)]}
         if "<img" in d:
