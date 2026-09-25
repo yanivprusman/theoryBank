@@ -84,11 +84,23 @@ class PracticeSession(private val questions: List<Question>) {
         if (option == question.k) { correct++; streak++ } else streak = 0
     }
 
+    // "Show the correct answer" without guessing: reveals it like a pick would,
+    // and counts as a miss — not knowing it is what the stats should show.
+    fun reveal() {
+        picked = REVEALED
+        answered++
+        streak = 0
+    }
+
+    val revealed: Boolean get() = picked == REVEALED
+
     fun next() {
         if (index + 1 < deck.size) index++ else { deck = pool.shuffled(); index = 0 }
         picked = null
     }
 }
+
+private const val REVEALED = -1
 
 // Practice mode: endless shuffled questions, one at a time. Tap an answer and
 // it is marked right or wrong on the spot, with the correct one shown.
@@ -188,6 +200,7 @@ private fun BottomAction(session: PracticeSession) {
     Surface(
         color = when {
             picked == null -> Color.White
+            session.revealed -> Palette.HighlightSoft
             right -> Palette.RightSoft
             else -> Palette.WrongSoft
         },
@@ -205,16 +218,31 @@ private fun BottomAction(session: PracticeSession) {
                     modifier = Modifier.weight(1f),
                 )
                 TextButton(onClick = { session.next() }, modifier = Modifier.testTag("practice-skip")) { Text("דלג") }
+                TextButton(onClick = { session.reveal() }, modifier = Modifier.testTag("practice-reveal")) {
+                    Text("הצג תשובה נכונה")
+                }
             } else {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        if (right) "נכון!" else "לא נכון",
+                        when {
+                            session.revealed -> "זו התשובה הנכונה"
+                            right -> "נכון!"
+                            else -> "לא נכון"
+                        },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = if (right) Palette.Right else Palette.Wrong,
+                        color = when {
+                            session.revealed -> Palette.Ink
+                            right -> Palette.Right
+                            else -> Palette.Wrong
+                        },
                     )
                     Text(
-                        if (right) encouragement(session.streak) else "התשובה הנכונה מסומנת בירוק",
+                        when {
+                            session.revealed -> "נספרת כטעות בסטטיסטיקה"
+                            right -> encouragement(session.streak)
+                            else -> "התשובה הנכונה מסומנת בירוק"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = Palette.Ink,
                     )
