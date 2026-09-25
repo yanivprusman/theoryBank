@@ -1,6 +1,12 @@
 package com.automatelinux.theoryBank.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,27 +15,41 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,13 +60,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.automatelinux.theoryBank.data.model.Question
+import com.automatelinux.theoryBank.ui.theme.Palette
 import kotlinx.coroutines.delay
 
 // The real computerised test's rules: 30 random questions, 40 minutes,
@@ -69,18 +92,20 @@ class ExamSession(val license: String, val pool: List<Question>) {
     internal var secondsLeft by mutableIntStateOf(EXAM_SECONDS)
     internal var index by mutableIntStateOf(0)
     val inProgress: Boolean get() = exam != null && !finished
+
+    internal fun start() {
+        exam = Exam(pool.shuffled().take(EXAM_SIZE))
+        finished = false
+        secondsLeft = EXAM_SECONDS
+        index = 0
+    }
 }
 
 @Composable
 fun ExamScreen(session: ExamSession, loadImage: (String) -> ImageBitmap) {
     val current = session.exam
     when {
-        current == null -> ExamIntro(session.license, session.pool.size) {
-            session.exam = Exam(session.pool.shuffled().take(EXAM_SIZE))
-            session.finished = false
-            session.secondsLeft = EXAM_SECONDS
-            session.index = 0
-        }
+        current == null -> ExamIntro(session.license, session.pool.size) { session.start() }
         session.finished -> ExamResult(current, EXAM_SECONDS - session.secondsLeft, loadImage) { session.exam = null }
         else -> {
             LaunchedEffect(current) {
@@ -99,28 +124,54 @@ fun ExamScreen(session: ExamSession, loadImage: (String) -> ImageBitmap) {
 @Composable
 private fun ExamIntro(license: String, poolSize: Int, onStart: () -> Unit) {
     Column(
-        Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("📝", fontSize = 56.sp)
         Spacer(Modifier.height(12.dp))
-        Text("מבחן תאוריה", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text(licenseLabel(license), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(20.dp))
+        SignMark(88.dp)
+        Spacer(Modifier.height(16.dp))
+        Text("מוכן למבחן?", style = MaterialTheme.typography.headlineMedium)
+        Spacer(Modifier.height(4.dp))
         Text(
-            "$EXAM_SIZE שאלות אקראיות מתוך $poolSize\n40 דקות\nכדי לעבור צריך $PASS_MARK תשובות נכונות (עד 4 טעויות)",
+            "סימולציה של המבחן העיוני הממוחשב · ${licenseLabel(license)}",
+            color = Palette.InkSoft,
             textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodyLarge,
+        )
+        Spacer(Modifier.height(24.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            RuleTile("$EXAM_SIZE", "שאלות", Modifier.weight(1f))
+            RuleTile("40", "דקות", Modifier.weight(1f))
+            RuleTile("$PASS_MARK", "נכונות לעבור", Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(14.dp))
+        Text(
+            "השאלות נבחרות באקראי מתוך $poolSize שאלות המאגר. אפשר לדלג ולחזור לשאלות עד ההגשה.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Palette.InkSoft,
+            textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(28.dp))
-        Button(onClick = onStart, modifier = Modifier.fillMaxWidth().height(52.dp).testTag("exam-start")) {
-            Text("התחל מבחן", style = MaterialTheme.typography.titleMedium)
+        Button(
+            onClick = onStart,
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().height(56.dp).testTag("exam-start"),
+        ) {
+            Text("התחל מבחן", style = MaterialTheme.typography.titleMedium, color = Color.White)
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RuleTile(value: String, label: String, modifier: Modifier) {
+    Surface(modifier, shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, Palette.Line)) {
+        Column(Modifier.padding(vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(value, style = MaterialTheme.typography.displaySmall, color = Palette.RoadBlue)
+            Text(label, style = MaterialTheme.typography.labelMedium, color = Palette.InkSoft)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ExamRunning(
     exam: Exam,
@@ -129,116 +180,141 @@ private fun ExamRunning(
     onFinish: () -> Unit,
     onQuit: () -> Unit,
 ) {
-    val secondsLeft = session.secondsLeft
     var index by session::index
     var confirmSubmit by remember { mutableStateOf(false) }
     var confirmQuit by remember { mutableStateOf(false) }
     var showGrid by remember { mutableStateOf(false) }
-    val scroll = rememberScrollState()
-    LaunchedEffect(index) { scroll.scrollTo(0) }
-    val item = exam.items[index]
     val answeredCount = exam.picks.count { it != null }
+    val last = exam.items.size - 1
 
     Column(Modifier.fillMaxSize()) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+        // Top bar — the same blue as the header, so the status bar stays readable.
+        Column(
+            Modifier.fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Palette.RoadBlueDark, Palette.RoadBlue)))
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 12.dp),
         ) {
-            TextButton(onClick = { showGrid = !showGrid }, modifier = Modifier.testTag("exam-toggle-grid")) {
-                Text("שאלה ${index + 1} מתוך ${exam.items.size} ▾")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { confirmQuit = true }, modifier = Modifier.testTag("exam-quit")) {
+                    Icon(Icons.Default.Close, contentDescription = "יציאה", tint = Color.White)
+                }
+                Text(
+                    "שאלה ${index + 1} מתוך ${exam.items.size}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f),
+                )
+                TimerPill(session.secondsLeft)
             }
-            Text(
-                "⏱ ${secondsLeft / 60}:${(secondsLeft % 60).toString().padStart(2, '0')}",
-                fontWeight = FontWeight.Bold,
-                color = if (secondsLeft < 5 * 60) WrongRed else MaterialTheme.colorScheme.onSurface,
-            )
-        }
-        LinearProgressIndicator(
-            progress = { answeredCount / exam.items.size.toFloat() },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        )
-        if (showGrid) {
-            FlowRow(
-                Modifier.fillMaxWidth().padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
+            Spacer(Modifier.height(6.dp))
+            // One segment per question: filled = answered, yellow = current.
+            Row(Modifier.fillMaxWidth().padding(start = 12.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                 exam.items.indices.forEach { i ->
-                    val answered = exam.picks[i] != null
-                    Surface(
-                        onClick = { index = i; showGrid = false },
-                        shape = CircleShape,
-                        color = if (answered) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(
-                            if (i == index) 2.dp else 1.dp,
-                            if (i == index) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outline,
-                        ),
-                        modifier = Modifier.size(36.dp).testTag("exam-jump-${i + 1}"),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                "${i + 1}",
-                                color = if (answered) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                                style = MaterialTheme.typography.labelMedium,
-                            )
+                    val color by animateColorAsState(
+                        when {
+                            i == index -> Palette.Highlight
+                            exam.picks[i] != null -> Color.White
+                            else -> Color.White.copy(alpha = 0.25f)
                         }
+                    )
+                    Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(3.dp)).background(color))
+                }
+            }
+        }
+
+        AnimatedContent(
+            targetState = index,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            modifier = Modifier.weight(1f),
+            label = "exam-question",
+        ) { i ->
+            val item = exam.items[i]
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+                Panel {
+                    QuestionHeader(item, prefix = "${i + 1}.")
+                    QuestionPicture(item, loadImage)
+                }
+                Spacer(Modifier.height(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    exam.orders[i].forEachIndexed { pos, opt ->
+                        OptionButton(
+                            text = item.o[opt],
+                            letter = LETTERS[pos],
+                            state = if (exam.picks[i] == opt) OptionState.Selected else OptionState.Idle,
+                            tag = "exam-option-$pos",
+                            onClick = { exam.picks[i] = opt },
+                        )
                     }
                 }
             }
         }
 
-        Column(Modifier.weight(1f).verticalScroll(scroll).padding(16.dp)) {
-            QuestionHeader(item)
-            QuestionPicture(item, loadImage)
-            Spacer(Modifier.height(14.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                exam.orders[index].forEachIndexed { pos, opt ->
-                    OptionButton(
-                        text = item.o[opt],
-                        letter = LETTERS[pos],
-                        state = if (exam.picks[index] == opt) OptionState.Selected else OptionState.Idle,
-                        tag = "exam-option-$pos",
-                        onClick = { exam.picks[index] = opt },
-                    )
+        Surface(color = Color.White, border = BorderStroke(1.dp, Palette.Line)) {
+            Row(
+                Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedButton(
+                    onClick = { index-- },
+                    enabled = index > 0,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.height(48.dp).testTag("exam-prev"),
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("הקודמת")
                 }
-            }
-        }
-
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            OutlinedButton(
-                onClick = { index-- },
-                enabled = index > 0,
-                modifier = Modifier.weight(1f).testTag("exam-prev"),
-            ) { Text("הקודמת") }
-            if (index < exam.items.size - 1) {
-                Button(onClick = { index++ }, modifier = Modifier.weight(1f).testTag("exam-next")) { Text("הבאה") }
-            } else {
-                Button(onClick = { confirmSubmit = true }, modifier = Modifier.weight(1f).testTag("exam-submit")) {
-                    Text("הגש מבחן")
+                IconButton(onClick = { showGrid = true }, modifier = Modifier.testTag("exam-toggle-grid")) {
+                    Icon(Icons.Default.GridView, contentDescription = "כל השאלות", tint = Palette.Ink)
                 }
-            }
-        }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(onClick = { confirmQuit = true }, modifier = Modifier.testTag("exam-quit")) { Text("יציאה") }
-            TextButton(onClick = { confirmSubmit = true }, modifier = Modifier.testTag("exam-submit-early")) {
-                Text("הגש עכשיו")
+                Spacer(Modifier.weight(1f))
+                if (index < last) {
+                    Button(
+                        onClick = { index++ },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.height(48.dp).testTag("exam-next"),
+                    ) {
+                        Text("הבאה")
+                        Spacer(Modifier.width(4.dp))
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, null, modifier = Modifier.size(18.dp))
+                    }
+                } else {
+                    Button(
+                        onClick = { confirmSubmit = true },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Palette.Right),
+                        modifier = Modifier.height(48.dp).testTag("exam-submit"),
+                    ) { Text("הגשת המבחן") }
+                }
             }
         }
     }
 
+    if (showGrid) {
+        ModalBottomSheet(
+            onDismissRequest = { showGrid = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = Color.White,
+        ) {
+            QuestionGrid(exam, index, answeredCount,
+                onJump = { index = it; showGrid = false },
+                onSubmit = { showGrid = false; confirmSubmit = true })
+        }
+    }
     if (confirmSubmit) {
         val missing = exam.items.size - answeredCount
         AlertDialog(
             onDismissRequest = { confirmSubmit = false },
+            containerColor = Color.White,
             title = { Text("להגיש את המבחן?") },
-            text = { Text(if (missing > 0) "לא ענית על $missing שאלות. שאלה שלא נענתה נחשבת טעות." else "ענית על כל השאלות.") },
+            text = {
+                Text(if (missing > 0) "לא ענית על $missing שאלות. שאלה שלא נענתה נחשבת טעות." else "ענית על כל השאלות. בהצלחה!")
+            },
             confirmButton = {
                 TextButton(onClick = { confirmSubmit = false; onFinish() }, modifier = Modifier.testTag("exam-confirm-submit")) {
-                    Text("הגש")
+                    Text("הגשה")
                 }
             },
             dismissButton = { TextButton(onClick = { confirmSubmit = false }) { Text("חזרה למבחן") } },
@@ -247,11 +323,12 @@ private fun ExamRunning(
     if (confirmQuit) {
         AlertDialog(
             onDismissRequest = { confirmQuit = false },
+            containerColor = Color.White,
             title = { Text("לצאת מהמבחן?") },
             text = { Text("התשובות שלך לא יישמרו.") },
             confirmButton = {
                 TextButton(onClick = { confirmQuit = false; onQuit() }, modifier = Modifier.testTag("exam-confirm-quit")) {
-                    Text("יציאה")
+                    Text("יציאה", color = Palette.Wrong)
                 }
             },
             dismissButton = { TextButton(onClick = { confirmQuit = false }) { Text("המשך במבחן") } },
@@ -260,85 +337,146 @@ private fun ExamRunning(
 }
 
 @Composable
+private fun TimerPill(secondsLeft: Int) {
+    val urgent = secondsLeft < 5 * 60
+    val bg by animateColorAsState(if (urgent) Palette.Wrong else Color.White.copy(alpha = 0.16f))
+    Row(
+        Modifier.clip(RoundedCornerShape(50)).background(bg).padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Default.Timer, null, tint = Color.White, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(formatClock(secondsLeft), color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun QuestionGrid(exam: Exam, index: Int, answeredCount: Int, onJump: (Int) -> Unit, onSubmit: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 20.dp)) {
+        Text("כל השאלות", style = MaterialTheme.typography.titleLarge)
+        Text("ענית על $answeredCount מתוך ${exam.items.size}", color = Palette.InkSoft)
+        Spacer(Modifier.height(16.dp))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            maxItemsInEachRow = 6,
+        ) {
+            exam.items.indices.forEach { i ->
+                val answered = exam.picks[i] != null
+                Surface(
+                    onClick = { onJump(i) },
+                    shape = CircleShape,
+                    color = if (answered) Palette.RoadBlue else Color.White,
+                    border = BorderStroke(if (i == index) 3.dp else 1.dp, if (i == index) Palette.Highlight else Palette.Line),
+                    modifier = Modifier.size(46.dp).testTag("exam-jump-${i + 1}"),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            "${i + 1}",
+                            color = if (answered) Color.White else Palette.Ink,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(20.dp))
+        Button(
+            onClick = onSubmit,
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Palette.Right),
+            modifier = Modifier.fillMaxWidth().height(52.dp).testTag("exam-submit-early"),
+        ) { Text("הגשת המבחן") }
+    }
+}
+
+@Composable
 private fun ExamResult(exam: Exam, secondsUsed: Int, loadImage: (String) -> ImageBitmap, onAgain: () -> Unit) {
     val score = exam.score()
     val passed = score >= PASS_MARK
+    val color = if (passed) Palette.Right else Palette.Wrong
+    val mistakes = exam.items.indices.filter { exam.picks[it] != exam.items[it].k }
     var onlyMistakes by remember { mutableStateOf(true) }
-    val reviewed = exam.items.indices.filter { !onlyMistakes || exam.picks[it] != exam.items[it].k }
+    val reviewed = if (onlyMistakes) mistakes else exam.items.indices.toList()
+    val mistakesLabel = "הטעויות (${mistakes.size})"
+    val allLabel = "כל השאלות"
 
     LazyColumn(
-        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Card(
-                Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = if (passed) RightGreenBg else WrongRedBg),
-            ) {
-                Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(if (passed) "🎉" else "😕", fontSize = 48.sp)
-                    Text(
-                        if (passed) "עברת!" else "לא עברת הפעם",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (passed) RightGreen else WrongRed,
-                    )
-                    Text("$score / ${exam.items.size} תשובות נכונות", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "${exam.items.size - score} טעויות · זמן ${secondsUsed / 60}:${(secondsUsed % 60).toString().padStart(2, '0')} דקות",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+            Panel {
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    ScoreRing(score / exam.items.size.toFloat(), color, 150.dp) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("$score", style = MaterialTheme.typography.displaySmall, color = color)
+                            Text("מתוך ${exam.items.size}", style = MaterialTheme.typography.labelMedium, color = Palette.InkSoft)
+                        }
+                    }
                     Spacer(Modifier.height(14.dp))
-                    Button(onClick = onAgain, modifier = Modifier.testTag("exam-again")) { Text("מבחן חדש") }
+                    Text(
+                        if (passed) "עברת! 🎉" else "הפעם לא עברת",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = color,
+                    )
+                    Text(
+                        if (passed) "כל הכבוד, ${mistakes.size} טעויות מתוך 4 מותרות"
+                        else "${mistakes.size} טעויות, מותר עד 4. עבור על הטעויות ונסה שוב",
+                        color = Palette.InkSoft,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text("זמן: ${formatClock(secondsUsed)} דקות", style = MaterialTheme.typography.bodySmall, color = Palette.InkSoft)
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = onAgain,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth().height(50.dp).testTag("exam-again"),
+                    ) { Text("מבחן חדש") }
                 }
             }
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = onlyMistakes,
-                    onClick = { onlyMistakes = true },
-                    label = { Text("רק הטעויות") },
-                    modifier = Modifier.testTag("review-mistakes"),
-                )
-                FilterChip(
-                    selected = !onlyMistakes,
-                    onClick = { onlyMistakes = false },
-                    label = { Text("כל השאלות") },
-                    modifier = Modifier.testTag("review-all"),
-                )
+            ChipRow(listOf(mistakesLabel, allLabel), if (onlyMistakes) mistakesLabel else allLabel, tagPrefix = "review") {
+                onlyMistakes = it == mistakesLabel
             }
         }
         if (reviewed.isEmpty()) {
-            item { Text("אין טעויות — מושלם! 🏆", modifier = Modifier.padding(8.dp), fontWeight = FontWeight.SemiBold) }
+            item {
+                Text(
+                    "אין טעויות, מושלם! 🏆",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
-        itemsIndexed(reviewed, key = { _, i -> i }) { _, i ->
+        items(reviewed, key = { it }) { i ->
             val item = exam.items[i]
             val pick = exam.picks[i]
-            Card(
-                Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-            ) {
-                Column(Modifier.padding(14.dp)) {
-                    QuestionHeader(item, prefix = "${i + 1}.")
-                    if (pick == null) Text("לא נענתה", color = WrongRed, fontWeight = FontWeight.SemiBold)
-                    QuestionPicture(item, loadImage)
-                    Spacer(Modifier.height(10.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        exam.orders[i].forEachIndexed { pos, opt ->
-                            OptionButton(
-                                text = item.o[opt],
-                                letter = LETTERS[pos],
-                                state = when (opt) {
-                                    item.k -> OptionState.Right
-                                    pick -> OptionState.Wrong
-                                    else -> OptionState.Dimmed
-                                },
-                                tag = "review-$i-option-$pos",
-                                onClick = null,
-                            )
-                        }
+            Panel {
+                QuestionHeader(item, prefix = "${i + 1}.")
+                if (pick == null) {
+                    Spacer(Modifier.height(6.dp))
+                    Text("לא נענתה", color = Palette.Wrong, style = MaterialTheme.typography.labelLarge)
+                }
+                QuestionPicture(item, loadImage)
+                Spacer(Modifier.height(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    exam.orders[i].forEachIndexed { pos, opt ->
+                        OptionButton(
+                            text = item.o[opt],
+                            letter = LETTERS[pos],
+                            state = when (opt) {
+                                item.k -> OptionState.Right
+                                pick -> OptionState.Wrong
+                                else -> OptionState.Dimmed
+                            },
+                            tag = "review-$i-option-$pos",
+                            onClick = null,
+                        )
                     }
                 }
             }
