@@ -71,11 +71,10 @@ fun partColor(part: String): Color = when (part) {
     else -> Palette.InkSoft
 }
 
-// Signs by number, and which questions name which sign. A question names a sign
-// when it says "תמרור 117", or when its answer options are sign numbers
+// Signs by number, and which questions are about which sign: those that name it
+// and those that picture it (see [pictured]). A question names a sign when it says "תמרור 117", or when its answer options are sign numbers
 // ("209 / 212 / 207 / 208") AND it has a picture of those signs — without one a
 // bare number is a quantity: question 1687's "110" is 110 km/h, not sign 110.
-// Questions that only show a sign's picture can't be linked.
 class SignBook(val signs: List<Sign>, questions: List<Question>, private val spots: Map<String, List<SignSpot>>) {
     private val byNumber = signs.associateBy { it.n }
 
@@ -86,14 +85,15 @@ class SignBook(val signs: List<Sign>, questions: List<Question>, private val spo
         return (inText + asOptions).map { renumbered[it] ?: it }.distinct().mapNotNull { byNumber[it] }.toList()
     }
 
-    private val questionsBySign: Map<String, List<Question>> =
-        questions.flatMap { q -> mentioned(q).map { it.n to q } }.groupBy({ it.first }, { it.second })
-
-    fun questionsFor(sign: Sign): List<Question> = questionsBySign[sign.n].orEmpty()
-
     // The signs drawn in a question's picture, each with where it sits.
     fun pictured(q: Question): List<Pair<Sign, SignSpot>> =
         spots[q.i].orEmpty().mapNotNull { spot -> byNumber[spot.n]?.let { it to spot } }
+
+    private val questionsBySign: Map<String, List<Question>> =
+        questions.flatMap { q -> (mentioned(q) + pictured(q).map { it.first }).distinct().map { it.n to q } }
+            .groupBy({ it.first }, { it.second })
+
+    fun questionsFor(sign: Sign): List<Question> = questionsBySign[sign.n].orEmpty()
 }
 
 // Questions whose picture still uses the pre-2011 numbering, checked by eye
