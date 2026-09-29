@@ -75,14 +75,14 @@ import kotlinx.serialization.json.Json
 
 // Three ways through the same official bank, and the sign table behind it:
 //  Answers  — read every question with only the correct answer (the yellow one)
+//  Signs    — every sign in the official table: picture, meaning, and the questions on it
 //  Practice — shuffled questions, all four options, instant right/wrong
 //  Exam     — the real test's rules: 30 questions, 40 minutes, 26 to pass
-//  Signs    — every sign in the official table: picture, meaning, and the questions on it
 private enum class Mode(val label: String, val title: String, val icon: ImageVector) {
     Answers("תשובות", "כל השאלות והתשובות", Icons.AutoMirrored.Filled.MenuBook),
+    Signs("תמרורים", "לוח התמרורים", Icons.Default.Traffic),
     Practice("תרגול", "תרגול עם משוב מיידי", Icons.Default.School),
     Exam("מבחן", "מבחן כמו האמיתי", Icons.Default.Timer),
-    Signs("תמרורים", "לוח התמרורים", Icons.Default.Traffic),
 }
 
 // Shared entry composable. The platform supplies the bundled question bank and
