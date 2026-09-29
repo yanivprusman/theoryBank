@@ -36,9 +36,10 @@ class MainActivity : ComponentActivity() {
         )
         val questionsJson = assets.open("questions.json").bufferedReader().use { it.readText() }
         val signsJson = assets.open("signs.json").bufferedReader().use { it.readText() }
+        val spotsJson = assets.open("sign-spots.json").bufferedReader().use { it.readText() }
         val settings = SharedPreferencesSettings(getSharedPreferences("theoryBank", MODE_PRIVATE))
         setContent {
-            App(questionsJson, signsJson, rubik, settings) { path ->
+            App(questionsJson, signsJson, spotsJson, rubik, settings) { path ->
                 assets.open(path).use { BitmapFactory.decodeStream(it) }.asImageBitmap()
             }
         }

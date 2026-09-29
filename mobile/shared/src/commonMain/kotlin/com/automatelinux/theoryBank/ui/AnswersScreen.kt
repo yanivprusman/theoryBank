@@ -203,7 +203,7 @@ private fun matches(item: Question, q: String): Boolean =
 private fun AnswerCard(item: Question, loadImage: (String) -> ImageBitmap) {
     Panel {
         QuestionHeader(item)
-        QuestionPicture(item, loadImage)
+        QuestionPicture(item, loadImage, signsOpen = true)
         Spacer(Modifier.height(12.dp))
         Row(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Palette.HighlightSoft)
@@ -220,6 +220,5 @@ private fun AnswerCard(item: Question, loadImage: (String) -> ImageBitmap) {
             Spacer(Modifier.width(8.dp))
             Icon(Icons.Default.CheckCircle, null, tint = Palette.Right, modifier = Modifier.size(20.dp))
         }
-        SignRefs(item, loadImage)
     }
 }

@@ -3,7 +3,6 @@ package com.automatelinux.theoryBank.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -53,6 +51,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.automatelinux.theoryBank.data.model.Question
 import com.automatelinux.theoryBank.data.model.Sign
+import com.automatelinux.theoryBank.data.model.SignSpot
 import com.automatelinux.theoryBank.ui.theme.Palette
 
 // The table's parts, in its own order, each in the colour its signs are drawn in.
@@ -77,7 +76,7 @@ fun partColor(part: String): Color = when (part) {
 // ("209 / 212 / 207 / 208") AND it has a picture of those signs — without one a
 // bare number is a quantity: question 1687's "110" is 110 km/h, not sign 110.
 // Questions that only show a sign's picture can't be linked.
-class SignBook(val signs: List<Sign>, questions: List<Question>) {
+class SignBook(val signs: List<Sign>, questions: List<Question>, private val spots: Map<String, List<SignSpot>>) {
     private val byNumber = signs.associateBy { it.n }
 
     fun mentioned(q: Question): List<Sign> {
@@ -91,6 +90,10 @@ class SignBook(val signs: List<Sign>, questions: List<Question>) {
         questions.flatMap { q -> mentioned(q).map { it.n to q } }.groupBy({ it.first }, { it.second })
 
     fun questionsFor(sign: Sign): List<Question> = questionsBySign[sign.n].orEmpty()
+
+    // The signs drawn in a question's picture, each with where it sits.
+    fun pictured(q: Question): List<Pair<Sign, SignSpot>> =
+        spots[q.i].orEmpty().mapNotNull { spot -> byNumber[spot.n]?.let { it to spot } }
 }
 
 // Questions whose picture still uses the pre-2011 numbering, checked by eye
@@ -113,39 +116,6 @@ fun SignPicture(sign: Sign, loadImage: (String) -> ImageBitmap, size: Dp, modifi
         contentScale = ContentScale.Fit,
         modifier = modifier.size(size),
     )
-}
-
-// The signs a question names, as tappable chips under it. Callers show this only
-// once the answer is known, so it can never give an answer away.
-@Composable
-fun SignRefs(item: Question, loadImage: (String) -> ImageBitmap) {
-    val book = LocalSignBook.current ?: return
-    val signs = remember(item.n, book) { book.mentioned(item) }
-    if (signs.isEmpty()) return
-    val open = LocalOpenSign.current
-    Spacer(Modifier.height(12.dp))
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("תמרורים בשאלה", style = MaterialTheme.typography.labelMedium, color = Palette.InkSoft)
-        signs.forEach { sign ->
-            Surface(
-                onClick = { open(sign) },
-                shape = RoundedCornerShape(50),
-                color = Color.White,
-                border = BorderStroke(1.dp, Palette.Line),
-                modifier = Modifier.testTag("sign-ref-${item.n}-${sign.n}"),
-            ) {
-                Row(Modifier.padding(start = 6.dp, end = 12.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    SignPicture(sign, loadImage, 26.dp)
-                    Spacer(Modifier.width(6.dp))
-                    Text(sign.n, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Palette.Ink)
-                }
-            }
-        }
-    }
 }
 
 // The signs tab: the whole official table, searchable by number or by word.
@@ -289,7 +259,7 @@ fun SignSheet(sign: Sign, book: SignBook, loadImage: (String) -> ImageBitmap, on
                 items(questions, key = { it.n }) { q ->
                     Panel {
                         QuestionHeader(q)
-                        QuestionPicture(q, loadImage)
+                        QuestionPicture(q, loadImage, signsOpen = true)
                         Spacer(Modifier.height(10.dp))
                         Row(
                             Modifier.fillMaxWidth().heightIn(min = 40.dp).clip(RoundedCornerShape(12.dp))

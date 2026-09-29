@@ -7,13 +7,17 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -163,25 +167,39 @@ fun QuestionHeader(item: Question, prefix: String? = null) {
     Text(item.q, style = MaterialTheme.typography.titleMedium, color = Palette.Ink)
 }
 
+// [signsOpen]: a tap on a sign drawn in the picture opens that sign. Callers pass
+// true only once the answer is known — before, a sign's meaning is the answer.
 @Composable
-fun QuestionPicture(item: Question, loadImage: (String) -> ImageBitmap) {
+fun QuestionPicture(item: Question, loadImage: (String) -> ImageBitmap, signsOpen: Boolean = false) {
     val file = item.i ?: return
     val bitmap = remember(file) { loadImage("img/$file") }
+    val book = LocalSignBook.current
+    val pictured = remember(item.n, book) { book?.pictured(item).orEmpty() }
+    val open = LocalOpenSign.current
     Spacer(Modifier.height(12.dp))
     Box(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White)
             .border(1.dp, Palette.Line, RoundedCornerShape(12.dp)).padding(6.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Image(
-            bitmap = bitmap,
-            contentDescription = null,
-            // Scale to the card's width: the source pictures are only 350px wide, and a
-            // sign drawn at its native size is too small to read.
-            modifier = Modifier.fillMaxWidth().aspectRatio(bitmap.width / bitmap.height.toFloat())
-                .clip(RoundedCornerShape(8.dp)),
-            contentScale = ContentScale.Fit,
-        )
+        // Scale to the card's width: the source pictures are only 350px wide, and a
+        // sign drawn at its native size is too small to read.
+        BoxWithConstraints(
+            Modifier.fillMaxWidth().aspectRatio(bitmap.width / bitmap.height.toFloat()).clip(RoundedCornerShape(8.dp)),
+        ) {
+            Image(bitmap = bitmap, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+            if (signsOpen) pictured.forEach { (sign, spot) ->
+                // absoluteOffset: the spots are measured from the picture's left edge,
+                // and the app runs right-to-left.
+                Box(
+                    Modifier.absoluteOffset(x = maxWidth * spot.x, y = maxHeight * spot.y)
+                        .size(maxWidth * spot.w, maxHeight * spot.h)
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable(onClickLabel = "תמרור ${sign.n}") { open(sign) }
+                        .testTag("sign-spot-${item.n}-${sign.n}"),
+                )
+            }
+        }
     }
 }
 

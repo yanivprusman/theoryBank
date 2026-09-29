@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.automatelinux.theoryBank.data.model.Question
 import com.automatelinux.theoryBank.data.model.Sign
+import com.automatelinux.theoryBank.data.model.SignSpot
 import com.automatelinux.theoryBank.ui.ALL
 import com.automatelinux.theoryBank.ui.AnswersScreen
 import com.automatelinux.theoryBank.ui.ExamScreen
@@ -86,12 +87,13 @@ private enum class Mode(val label: String, val title: String, val icon: ImageVec
 }
 
 // Shared entry composable. The platform supplies the bundled question bank and
-// sign table as JSON, a loader for bundled pictures (by asset path: "img/…",
+// sign table as JSON, where each sign sits in the multi-sign pictures, a loader for bundled pictures (by asset path: "img/…",
 // "signs/…"), the app font and on-device storage, so the app works fully offline.
 @Composable
 fun App(
     questionsJson: String,
     signsJson: String,
+    spotsJson: String,
     fontFamily: FontFamily,
     settings: Settings,
     loadImage: (String) -> ImageBitmap,
@@ -100,23 +102,24 @@ fun App(
         Json.decodeFromString<List<Question>>(questionsJson)
     }
     val signs = remember(signsJson) { Json.decodeFromString<List<Sign>>(signsJson) }
+    val spots = remember(spotsJson) { Json.decodeFromString<Map<String, List<SignSpot>>>(spotsJson) }
     AppTheme(fontFamily) {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                Home(questions, signs, settings, loadImage)
+                Home(questions, signs, spots, settings, loadImage)
             }
         }
     }
 }
 
 @Composable
-private fun Home(questions: List<Question>, signs: List<Sign>, settings: Settings, loadImage: (String) -> ImageBitmap) {
+private fun Home(questions: List<Question>, signs: List<Sign>, spots: Map<String, List<SignSpot>>, settings: Settings, loadImage: (String) -> ImageBitmap) {
     var mode by rememberSaveable { mutableStateOf(Mode.Answers) }
     var license by rememberSaveable { mutableStateOf("C1") }
     val forLicense = remember(questions, license) { questions.filter { it.isFor(license) } }
     val practice = remember(forLicense) { PracticeSession(forLicense) }
     val exam = remember(forLicense) { ExamSession(license, forLicense) }
-    val book = remember(signs, forLicense) { SignBook(signs, forLicense) }
+    val book = remember(signs, forLicense, spots) { SignBook(signs, forLicense, spots) }
     var openSign by remember { mutableStateOf<Sign?>(null) }
     // Mid-exam the chrome gets out of the way, like the real test.
     val focused = mode == Mode.Exam && exam.inProgress

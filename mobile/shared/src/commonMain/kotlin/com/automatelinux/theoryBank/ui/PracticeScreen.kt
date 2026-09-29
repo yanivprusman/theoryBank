@@ -128,9 +128,8 @@ fun PracticeScreen(session: PracticeSession, loadImage: (String) -> ImageBitmap)
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
                     Panel {
                         QuestionHeader(item)
-                        QuestionPicture(item, loadImage)
-                        // Only after answering: before, a sign's meaning is the answer.
-                        if (picked != null) SignRefs(item, loadImage)
+                        // Signs open only after answering: before, a sign's meaning is the answer.
+                        QuestionPicture(item, loadImage, signsOpen = picked != null)
                     }
                     Spacer(Modifier.height(12.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
