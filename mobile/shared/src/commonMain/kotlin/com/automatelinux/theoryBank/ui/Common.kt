@@ -36,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -189,10 +190,10 @@ fun QuestionPicture(item: Question, loadImage: (String) -> ImageBitmap, signsOpe
         ) {
             Image(bitmap = bitmap, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
             if (signsOpen) pictured.forEach { (sign, spot) ->
-                // absoluteOffset: the spots are measured from the picture's left edge,
-                // and the app runs right-to-left.
+                // TopLeft + absoluteOffset: the spots are measured from the picture's left
+                // edge, and the app runs right-to-left (a plain Box would start them at the right).
                 Box(
-                    Modifier.absoluteOffset(x = maxWidth * spot.x, y = maxHeight * spot.y)
+                    Modifier.align(AbsoluteAlignment.TopLeft).absoluteOffset(x = maxWidth * spot.x, y = maxHeight * spot.y)
                         .size(maxWidth * spot.w, maxHeight * spot.h)
                         .clip(RoundedCornerShape(6.dp))
                         .clickable(onClickLabel = "תמרור ${sign.n}") { open(sign) }
