@@ -73,16 +73,18 @@ fun partColor(part: String): Color = when (part) {
 }
 
 // Signs by number, and which questions name which sign. A question names a sign
-// when it says "תמרור 117" or when an answer option is just a sign number
-// ("209 / 212 / 207 / 208"). Bare numbers elsewhere are not signs: "100 מטרים",
-// "90 קמ"ש". Questions that only show a sign's picture can't be linked.
+// when it says "תמרור 117", or when its answer options are sign numbers
+// ("209 / 212 / 207 / 208") AND it has a picture of those signs — without one a
+// bare number is a quantity: question 1687's "110" is 110 km/h, not sign 110.
+// Questions that only show a sign's picture can't be linked.
 class SignBook(val signs: List<Sign>, questions: List<Question>) {
     private val byNumber = signs.associateBy { it.n }
 
     fun mentioned(q: Question): List<Sign> {
         val inText = Regex("""תמרור(?:ים)?\s+(\d{3}פ?)""").findAll(q.q).map { it.groupValues[1] }
-        val asOptions = q.o.map { it.trim().trimEnd('.') }
-        return (inText + asOptions).distinct().mapNotNull { byNumber[it] }.toList()
+        val asOptions = if (q.i != null) q.o.map { it.trim().trimEnd('.') } else emptyList()
+        val renumbered = OLD_NUMBERS[q.n].orEmpty()
+        return (inText + asOptions).map { renumbered[it] ?: it }.distinct().mapNotNull { byNumber[it] }.toList()
     }
 
     private val questionsBySign: Map<String, List<Question>> =
@@ -90,6 +92,13 @@ class SignBook(val signs: List<Sign>, questions: List<Question>) {
 
     fun questionsFor(sign: Sign): List<Question> = questionsBySign[sign.n].orEmpty()
 }
+
+// Questions whose picture still uses the pre-2011 numbering, checked by eye
+// against the 2022 table (question -> printed number -> today's number). The
+// question text stays as the ministry publishes it; only the link follows the
+// sign actually pictured. 1803: its winding road is labelled 107, today's 106
+// (107 is now the chevron board).
+private val OLD_NUMBERS = mapOf(1803 to mapOf("107" to "106"))
 
 // Opens a sign's page from anywhere a sign number shows up.
 val LocalOpenSign = compositionLocalOf<(Sign) -> Unit> { {} }
