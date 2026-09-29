@@ -63,6 +63,7 @@ import com.automatelinux.theoryBank.ui.isFor
 import com.automatelinux.theoryBank.ui.licenseLabel
 import com.automatelinux.theoryBank.ui.theme.AppTheme
 import com.automatelinux.theoryBank.ui.theme.Palette
+import com.russhwolf.settings.Settings
 import kotlinx.serialization.json.Json
 
 // Three ways through the same official bank:
@@ -76,24 +77,24 @@ private enum class Mode(val label: String, val title: String, val icon: ImageVec
 }
 
 // Shared entry composable. The platform supplies the bundled question bank as
-// JSON, a loader for the bundled pictures and the app font, so the app works
-// fully offline.
+// JSON, a loader for the bundled pictures, the app font and on-device storage,
+// so the app works fully offline.
 @Composable
-fun App(questionsJson: String, fontFamily: FontFamily, loadImage: (String) -> ImageBitmap) {
+fun App(questionsJson: String, fontFamily: FontFamily, settings: Settings, loadImage: (String) -> ImageBitmap) {
     val questions = remember(questionsJson) {
         Json.decodeFromString<List<Question>>(questionsJson)
     }
     AppTheme(fontFamily) {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                Home(questions, loadImage)
+                Home(questions, settings, loadImage)
             }
         }
     }
 }
 
 @Composable
-private fun Home(questions: List<Question>, loadImage: (String) -> ImageBitmap) {
+private fun Home(questions: List<Question>, settings: Settings, loadImage: (String) -> ImageBitmap) {
     var mode by rememberSaveable { mutableStateOf(Mode.Answers) }
     var license by rememberSaveable { mutableStateOf("C1") }
     val forLicense = remember(questions, license) { questions.filter { it.isFor(license) } }
@@ -109,7 +110,7 @@ private fun Home(questions: List<Question>, loadImage: (String) -> ImageBitmap) 
         Box(Modifier.weight(1f).imePadding()) {
             Crossfade(mode, label = "mode") { m ->
                 when (m) {
-                    Mode.Answers -> AnswersScreen(forLicense, loadImage)
+                    Mode.Answers -> AnswersScreen(forLicense, settings, loadImage)
                     Mode.Practice -> PracticeScreen(practice, loadImage)
                     Mode.Exam -> ExamScreen(exam, loadImage)
                 }

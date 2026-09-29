@@ -21,7 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -43,8 +43,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,12 +57,21 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.automatelinux.theoryBank.data.model.Question
 import com.automatelinux.theoryBank.ui.theme.Palette
+import com.russhwolf.settings.Settings
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+
+// Where the reader was, kept across app restarts. Anchored to the question
+// number of the top card rather than a list index, so it survives a changed
+// filter or licence: if that question is still listed, reading resumes there.
+private const val KEY_ANCHOR = "answers.anchorQuestion"
+private const val KEY_OFFSET = "answers.anchorOffset"
 
 // Reading mode: every question with only its correct answer, in yellow —
 // the gov.il page with the "show correct answer" button already pressed.
 @Composable
-fun AnswersScreen(questions: List<Question>, loadImage: (String) -> ImageBitmap) {
+fun AnswersScreen(questions: List<Question>, settings: Settings, loadImage: (String) -> ImageBitmap) {
     var query by rememberSaveable { mutableStateOf("") }
     var category by rememberSaveable { mutableStateOf(ALL) }
 
@@ -68,10 +79,33 @@ fun AnswersScreen(questions: List<Question>, loadImage: (String) -> ImageBitmap)
         val q = query.trim()
         questions.filter { item -> (category == ALL || item.c == category) && (q.isEmpty() || matches(item, q)) }
     }
-    val listState = rememberLazyListState()
+    // Item 0 is the count line, so question i sits at list index i + 1.
+    val listState = remember {
+        val index = shown.indexOfFirst { it.n == settings.getInt(KEY_ANCHOR, 0) }
+        LazyListState(
+            firstVisibleItemIndex = if (index < 0) 0 else index + 1,
+            firstVisibleItemScrollOffset = if (index < 0) 0 else settings.getInt(KEY_OFFSET, 0),
+        )
+    }
     val scope = rememberCoroutineScope()
     val scrolledFar by remember { derivedStateOf { listState.firstVisibleItemIndex > 4 } }
-    LaunchedEffect(query, category, questions) { listState.scrollToItem(0) }
+    // A new search, category or licence starts from the top — but not the
+    // first composition, which is the restored position above.
+    var restored by remember { mutableStateOf(false) }
+    LaunchedEffect(query, category, questions) {
+        if (restored) listState.scrollToItem(0) else restored = true
+    }
+    // Saved once scrolling settles for a moment, not on every frame of a fling.
+    val currentShown by rememberUpdatedState(shown)
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+            .collectLatest { (index, offset) ->
+                delay(300)
+                val anchor = if (index == 0) 0 else currentShown.getOrNull(index - 1)?.n ?: return@collectLatest
+                settings.putInt(KEY_ANCHOR, anchor)
+                settings.putInt(KEY_OFFSET, if (index == 0) 0 else offset)
+            }
+    }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
