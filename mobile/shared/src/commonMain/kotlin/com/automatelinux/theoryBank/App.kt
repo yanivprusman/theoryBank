@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Traffic
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -51,11 +52,17 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.automatelinux.theoryBank.data.model.Question
+import com.automatelinux.theoryBank.data.model.Sign
 import com.automatelinux.theoryBank.ui.ALL
 import com.automatelinux.theoryBank.ui.AnswersScreen
 import com.automatelinux.theoryBank.ui.ExamScreen
 import com.automatelinux.theoryBank.ui.ExamSession
 import com.automatelinux.theoryBank.ui.LICENSES
+import com.automatelinux.theoryBank.ui.LocalOpenSign
+import com.automatelinux.theoryBank.ui.LocalSignBook
+import com.automatelinux.theoryBank.ui.SignBook
+import com.automatelinux.theoryBank.ui.SignSheet
+import com.automatelinux.theoryBank.ui.SignsScreen
 import com.automatelinux.theoryBank.ui.PracticeScreen
 import com.automatelinux.theoryBank.ui.PracticeSession
 import com.automatelinux.theoryBank.ui.SignMark
@@ -66,53 +73,71 @@ import com.automatelinux.theoryBank.ui.theme.Palette
 import com.russhwolf.settings.Settings
 import kotlinx.serialization.json.Json
 
-// Three ways through the same official bank:
+// Three ways through the same official bank, and the sign table behind it:
 //  Answers  — read every question with only the correct answer (the yellow one)
 //  Practice — shuffled questions, all four options, instant right/wrong
 //  Exam     — the real test's rules: 30 questions, 40 minutes, 26 to pass
+//  Signs    — every sign in the official table: picture, meaning, and the questions on it
 private enum class Mode(val label: String, val title: String, val icon: ImageVector) {
     Answers("תשובות", "כל השאלות והתשובות", Icons.AutoMirrored.Filled.MenuBook),
     Practice("תרגול", "תרגול עם משוב מיידי", Icons.Default.School),
     Exam("מבחן", "מבחן כמו האמיתי", Icons.Default.Timer),
+    Signs("תמרורים", "לוח התמרורים", Icons.Default.Traffic),
 }
 
-// Shared entry composable. The platform supplies the bundled question bank as
-// JSON, a loader for the bundled pictures, the app font and on-device storage,
-// so the app works fully offline.
+// Shared entry composable. The platform supplies the bundled question bank and
+// sign table as JSON, a loader for bundled pictures (by asset path: "img/…",
+// "signs/…"), the app font and on-device storage, so the app works fully offline.
 @Composable
-fun App(questionsJson: String, fontFamily: FontFamily, settings: Settings, loadImage: (String) -> ImageBitmap) {
+fun App(
+    questionsJson: String,
+    signsJson: String,
+    fontFamily: FontFamily,
+    settings: Settings,
+    loadImage: (String) -> ImageBitmap,
+) {
     val questions = remember(questionsJson) {
         Json.decodeFromString<List<Question>>(questionsJson)
     }
+    val signs = remember(signsJson) { Json.decodeFromString<List<Sign>>(signsJson) }
     AppTheme(fontFamily) {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                Home(questions, settings, loadImage)
+                Home(questions, signs, settings, loadImage)
             }
         }
     }
 }
 
 @Composable
-private fun Home(questions: List<Question>, settings: Settings, loadImage: (String) -> ImageBitmap) {
+private fun Home(questions: List<Question>, signs: List<Sign>, settings: Settings, loadImage: (String) -> ImageBitmap) {
     var mode by rememberSaveable { mutableStateOf(Mode.Answers) }
     var license by rememberSaveable { mutableStateOf("C1") }
     val forLicense = remember(questions, license) { questions.filter { it.isFor(license) } }
     val practice = remember(forLicense) { PracticeSession(forLicense) }
     val exam = remember(forLicense) { ExamSession(license, forLicense) }
+    val book = remember(signs, forLicense) { SignBook(signs, forLicense) }
+    var openSign by remember { mutableStateOf<Sign?>(null) }
     // Mid-exam the chrome gets out of the way, like the real test.
     val focused = mode == Mode.Exam && exam.inProgress
 
     Column(Modifier.fillMaxSize()) {
         AnimatedVisibility(!focused) {
-            Header(mode.title, license, forLicense.size) { license = it }
+            Header(
+                mode.title,
+                if (mode == Mode.Signs) "${signs.size} תמרורים" else "${forLicense.size} שאלות",
+                license,
+            ) { license = it }
         }
         Box(Modifier.weight(1f).imePadding()) {
-            Crossfade(mode, label = "mode") { m ->
-                when (m) {
-                    Mode.Answers -> AnswersScreen(forLicense, settings, loadImage)
-                    Mode.Practice -> PracticeScreen(practice, loadImage)
-                    Mode.Exam -> ExamScreen(exam, loadImage)
+            CompositionLocalProvider(LocalSignBook provides book, LocalOpenSign provides { openSign = it }) {
+                Crossfade(mode, label = "mode") { m ->
+                    when (m) {
+                        Mode.Answers -> AnswersScreen(forLicense, settings, loadImage)
+                        Mode.Practice -> PracticeScreen(practice, loadImage)
+                        Mode.Exam -> ExamScreen(exam, loadImage)
+                        Mode.Signs -> SignsScreen(book, loadImage)
+                    }
                 }
             }
         }
@@ -137,10 +162,11 @@ private fun Home(questions: List<Question>, settings: Settings, loadImage: (Stri
             }
         }
     }
+    openSign?.let { SignSheet(it, book, loadImage) { openSign = null } }
 }
 
 @Composable
-private fun Header(subtitle: String, license: String, count: Int, onLicense: (String) -> Unit) {
+private fun Header(subtitle: String, count: String, license: String, onLicense: (String) -> Unit) {
     Box(
         Modifier.fillMaxWidth()
             .background(Brush.verticalGradient(listOf(Palette.RoadBlueDark, Palette.RoadBlue)))
@@ -153,7 +179,7 @@ private fun Header(subtitle: String, license: String, count: Int, onLicense: (St
             Column(Modifier.weight(1f)) {
                 Text("מאגר התאוריה", style = MaterialTheme.typography.titleLarge, color = Color.White)
                 Text(
-                    "$subtitle · $count שאלות",
+                    "$subtitle · $count",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.75f),
                 )

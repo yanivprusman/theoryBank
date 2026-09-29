@@ -463,6 +463,7 @@ private fun ExamResult(exam: Exam, secondsUsed: Int, loadImage: (String) -> Imag
                     Text("לא נענתה", color = Palette.Wrong, style = MaterialTheme.typography.labelLarge)
                 }
                 QuestionPicture(item, loadImage)
+                SignRefs(item, loadImage)  // the review, after the exam — never during it
                 Spacer(Modifier.height(12.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     exam.orders[i].forEachIndexed { pos, opt ->

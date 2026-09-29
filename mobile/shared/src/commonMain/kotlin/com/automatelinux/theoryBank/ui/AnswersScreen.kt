@@ -109,7 +109,7 @@ fun AnswersScreen(questions: List<Question>, settings: Settings, loadImage: (Str
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            SearchField(query) { query = it }
+            SearchField(query, "חיפוש מילה או מספר שאלה", "search-questions") { query = it }
             ChipRow(CATEGORIES, category, tagPrefix = "category", dotColor = ::categoryColor) { category = it }
 
             if (shown.isEmpty()) {
@@ -157,8 +157,9 @@ fun AnswersScreen(questions: List<Question>, settings: Settings, loadImage: (Str
     }
 }
 
+// Shared by the questions and the signs lists.
 @Composable
-private fun SearchField(query: String, onChange: (String) -> Unit) {
+fun SearchField(query: String, placeholder: String, tag: String, onChange: (String) -> Unit) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = Color.White,
@@ -170,7 +171,7 @@ private fun SearchField(query: String, onChange: (String) -> Unit) {
             Spacer(Modifier.width(10.dp))
             Box(Modifier.weight(1f).padding(vertical = 15.dp)) {
                 if (query.isEmpty()) {
-                    Text("חיפוש מילה או מספר שאלה", color = Palette.InkSoft, style = MaterialTheme.typography.bodyLarge)
+                    Text(placeholder, color = Palette.InkSoft, style = MaterialTheme.typography.bodyLarge)
                 }
                 BasicTextField(
                     value = query,
@@ -178,7 +179,7 @@ private fun SearchField(query: String, onChange: (String) -> Unit) {
                     singleLine = true,
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = Palette.Ink),
                     cursorBrush = SolidColor(Palette.RoadBlue),
-                    modifier = Modifier.fillMaxWidth().testTag("search-questions"),
+                    modifier = Modifier.fillMaxWidth().testTag(tag),
                 )
             }
             if (query.isNotEmpty()) {
@@ -219,5 +220,6 @@ private fun AnswerCard(item: Question, loadImage: (String) -> ImageBitmap) {
             Spacer(Modifier.width(8.dp))
             Icon(Icons.Default.CheckCircle, null, tint = Palette.Right, modifier = Modifier.size(20.dp))
         }
+        SignRefs(item, loadImage)
     }
 }

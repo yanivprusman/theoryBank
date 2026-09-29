@@ -16,7 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import com.russhwolf.settings.SharedPreferencesSettings
 
 // Thin Android launcher — all UI lives in the shared commonMain App() composable.
-// The question bank, its pictures and the font ship inside the APK, so the app
+// The question bank, the sign table, their pictures and the font ship inside the APK, so the app
 // needs no network at all.
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalTextApi::class)
@@ -35,10 +35,11 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
         )
         val questionsJson = assets.open("questions.json").bufferedReader().use { it.readText() }
+        val signsJson = assets.open("signs.json").bufferedReader().use { it.readText() }
         val settings = SharedPreferencesSettings(getSharedPreferences("theoryBank", MODE_PRIVATE))
         setContent {
-            App(questionsJson, rubik, settings) { file ->
-                assets.open("img/$file").use { BitmapFactory.decodeStream(it) }.asImageBitmap()
+            App(questionsJson, signsJson, rubik, settings) { path ->
+                assets.open(path).use { BitmapFactory.decodeStream(it) }.asImageBitmap()
             }
         }
     }

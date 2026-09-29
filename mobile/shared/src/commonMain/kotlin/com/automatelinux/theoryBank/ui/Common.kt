@@ -166,7 +166,7 @@ fun QuestionHeader(item: Question, prefix: String? = null) {
 @Composable
 fun QuestionPicture(item: Question, loadImage: (String) -> ImageBitmap) {
     val file = item.i ?: return
-    val bitmap = remember(file) { loadImage(file) }
+    val bitmap = remember(file) { loadImage("img/$file") }
     Spacer(Modifier.height(12.dp))
     Box(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White)

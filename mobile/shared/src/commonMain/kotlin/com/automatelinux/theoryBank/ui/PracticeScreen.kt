@@ -129,6 +129,8 @@ fun PracticeScreen(session: PracticeSession, loadImage: (String) -> ImageBitmap)
                     Panel {
                         QuestionHeader(item)
                         QuestionPicture(item, loadImage)
+                        // Only after answering: before, a sign's meaning is the answer.
+                        if (picked != null) SignRefs(item, loadImage)
                     }
                     Spacer(Modifier.height(12.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
