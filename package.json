@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@addnewfeature/feedback-lib-launcher": "file:../../automateLinux/packages/feedback-lib-launcher",
+    "@automatelinux/wa-bridge": "file:../../automateLinux/packages/wa-bridge",
     "@claudecontrol/feedback-lib": "file:../../automateLinux/packages/feedback-lib",
     "@tanstack/react-virtual": "^3.14.13",
     "next": "16.3.6",

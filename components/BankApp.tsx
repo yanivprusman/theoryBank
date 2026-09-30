@@ -284,7 +284,21 @@ function Chrome({
           </div>
         </header>
       )}
-      <main className="flex flex-1 flex-col pb-(--nav-h)">{children}</main>
+      <main className="flex flex-1 flex-col pb-(--nav-h)">
+        {children}
+        {!focused && (
+          <p className="t-body-sm mt-auto py-6 text-center text-ink-soft">
+            מורה לנהיגה?{' '}
+            <a
+              href="/teachers"
+              data-id="teachers-link"
+              className="cursor-pointer rounded font-medium text-road underline-offset-2 transition-colors duration-150 ease-rise hover:text-road-dark hover:underline"
+            >
+              פרסם את עצמך כאן
+            </a>
+          </p>
+        )}
+      </main>
     </div>
   )
 }

@@ -14,7 +14,7 @@ if (!fs.existsSync(path.join(workspaceRoot, 'packages/feedback-lib/package.json'
 
 const nextConfig: NextConfig = {
   turbopack: { root: turbopackRoot },
-  transpilePackages: ['@claudecontrol/feedback-lib', '@addnewfeature/feedback-lib-launcher'],
+  transpilePackages: ['@claudecontrol/feedback-lib', '@addnewfeature/feedback-lib-launcher', '@automatelinux/wa-bridge'],
   allowedDevOrigins: process.env.ALLOWED_DEV_ORIGINS?.split(',') ?? [],
   /* config options here */
 };

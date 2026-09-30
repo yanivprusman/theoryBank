@@ -298,9 +298,9 @@ export function EmptyState({ icon, title, hint }: { icon: ReactNode; title: stri
 }
 
 // The main action of a screen, and its quieter sibling.
-const BUTTON = 't-label-lg inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-5 transition-[background-color,border-color,opacity,transform] duration-150 ease-rise active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100'
+export const BUTTON = 't-label-lg inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-5 transition-[background-color,border-color,opacity,transform] duration-150 ease-rise active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100'
 
-const BUTTON_TONE = {
+export const BUTTON_TONE = {
   road: 'bg-road text-white hover:bg-road-dark',
   ink: 'bg-ink text-white hover:bg-road-dark',
   ok: 'bg-ok-ink text-white hover:bg-ok-ink/90',
