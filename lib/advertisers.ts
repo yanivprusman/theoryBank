@@ -8,7 +8,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { bridgeFromEnv, sendText, WaBridgeConfigError } from '@automatelinux/wa-bridge'
 
-const DATA_DIR = process.env.THEORYBANK_DATA_DIR?.trim() || '/opt/automateLinux/data/theoryBank'
+export const DATA_DIR = process.env.THEORYBANK_DATA_DIR?.trim() || '/opt/automateLinux/data/theoryBank'
 const INQUIRIES_FILE = () => path.join(DATA_DIR, 'advertiser-inquiries.ndjson')
 const NOTIFICATIONS_FILE = () => path.join(DATA_DIR, 'advertiser-notifications.ndjson')
 

@@ -10,16 +10,17 @@ import { offlineLine, useOfflineCopy, type OfflineCopy } from './offline-copy'
 import AnswersScreen from './AnswersScreen'
 import { BankCtx, useBank } from './bank-context'
 import ExamScreen from './ExamScreen'
-import { CheckIcon, ExpandMoreIcon, MenuBookIcon, SchoolIcon, SignMark, TimerIcon, TrafficIcon } from './icons'
+import { CheckIcon, ExpandMoreIcon, MenuBookIcon, PersonIcon, SchoolIcon, SignMark, TimerIcon, TrafficIcon } from './icons'
 import PracticeScreen from './PracticeScreen'
 import { SignSheet } from './SignSheet'
 import SignsScreen from './SignsScreen'
+import TeachersScreen from './TeachersScreen'
 import { Button, COLUMN, Panel } from './ui'
 
-const MODE_ICONS = { answers: MenuBookIcon, signs: TrafficIcon, practice: SchoolIcon, exam: TimerIcon }
-const SCREENS = { answers: AnswersScreen, signs: SignsScreen, practice: PracticeScreen, exam: ExamScreen }
+const MODE_ICONS = { answers: MenuBookIcon, signs: TrafficIcon, practice: SchoolIcon, exam: TimerIcon, teachers: PersonIcon }
+const SCREENS = { answers: AnswersScreen, signs: SignsScreen, practice: PracticeScreen, exam: ExamScreen, teachers: TeachersScreen }
 
-// The four screens are one page. Moving between them changes the address with
+// The five screens are one page. Moving between them changes the address with
 // the History API — Next keeps `usePathname` in step — and the shell draws the
 // screen that address names. No request leaves the browser, so the practice
 // score and a running exam survive the switch, and it works with no network.
@@ -126,7 +127,7 @@ function Ready({ bank, license, children }: { bank: Bank; license: string; child
   const Screen = SCREENS[mode.id]
   // Mid-exam the chrome gets out of the way, like the real test.
   const focused = mode.id === 'exam' && exam.inProgress
-  const count = mode.id === 'signs' ? `${bank.signs.length} תמרורים` : `${questions.length} שאלות`
+  const count = mode.id === 'teachers' ? null : mode.id === 'signs' ? `${bank.signs.length} תמרורים` : `${questions.length} שאלות`
 
   const offline = useOfflineCopy(bank)
 
@@ -284,21 +285,7 @@ function Chrome({
           </div>
         </header>
       )}
-      <main className="flex flex-1 flex-col pb-(--nav-h)">
-        {children}
-        {!focused && (
-          <p className="t-body-sm mt-auto py-6 text-center text-ink-soft">
-            מורה לנהיגה?{' '}
-            <a
-              href="/teachers"
-              data-id="teachers-link"
-              className="cursor-pointer rounded font-medium text-road underline-offset-2 transition-colors duration-150 ease-rise hover:text-road-dark hover:underline"
-            >
-              פרסם את עצמך כאן
-            </a>
-          </p>
-        )}
-      </main>
+      <main className="flex flex-1 flex-col pb-(--nav-h)">{children}</main>
     </div>
   )
 }

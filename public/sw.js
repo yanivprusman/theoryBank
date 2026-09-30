@@ -1,4 +1,4 @@
-// theoryBank's offline copy: the four screens, the code and styles they load,
+// theoryBank's offline copy: the five screens, the code and styles they load,
 // the bank's three files and every picture, kept in one cache.
 //
 // The network always comes first for anything that can change — pages, code,
@@ -11,7 +11,10 @@
 // outside the app's bundle.
 
 const CACHE = 'theorybank-offline-v1'
-const ROUTES = ['/', '/signs', '/practice', '/exam']
+const ROUTES = ['/', '/signs', '/practice', '/exam', '/teachers']
+// Kept as last seen, so a student with no network still has the teachers' numbers.
+// Not part of the copy's completeness: the list changes, the bank does not.
+const LIVE_FILES = ['/api/teachers']
 const BANK_FILES = ['/bank/questions.json', '/bank/signs.json', '/bank/sign-spots.json']
 // What a proxy answers when the app's server is down: unreachable, like no network.
 const UNREACHABLE = new Set([502, 503, 504])
@@ -45,7 +48,7 @@ self.addEventListener('fetch', (event) => {
   if (request.headers.has('rsc') || url.searchParams.has('_rsc')) return
 
   if (isPicture(url)) event.respondWith(copyFirst(event, request, url))
-  else if (isBuildFile(url) || BANK_FILES.includes(url.pathname)) event.respondWith(networkFirst(event, request, url))
+  else if (isBuildFile(url) || BANK_FILES.includes(url.pathname) || LIVE_FILES.includes(url.pathname)) event.respondWith(networkFirst(event, request, url))
 })
 
 async function networkFirst(event, request, url) {
