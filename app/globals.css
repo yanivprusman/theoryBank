@@ -1,3 +1,221 @@
 @import "tailwindcss";
 @source "../../../automateLinux/packages/feedback-lib/src";
 @source "../../../automateLinux/packages/feedback-lib-launcher/src";
+
+/* Palette taken from the road, the one the Android app wears (ui/theme/Theme.kt):
+   information-sign blue, warning-sign red, and the yellow gov.il paints on the
+   correct answer. The -ink greens and reds are the same hues, darkened until
+   they carry text and white-on-fill at AA. */
+@theme {
+  --font-sans: var(--font-rubik), system-ui, sans-serif;
+
+  --color-road: #1646a8;
+  --color-road-dark: #0e3380;
+  --color-road-tint: #dce6fb;
+  --color-road-soft: #e8effd;
+  --color-sign: #d32f2f;
+  --color-highlight: #ffd400;
+  --color-highlight-soft: #ffee99;
+  --color-ink: #0f1b3d;
+  --color-ink-soft: #5b6784;
+  --color-page: #f3f5fa;
+  --color-line: #e1e6f0;
+  --color-line-strong: #b9c2d6;
+  --color-ok: #1e8e4e;
+  --color-ok-ink: #187440;
+  --color-ok-soft: #e3f5ea;
+  --color-bad: #d32f2f;
+  --color-bad-ink: #b3261e;
+  --color-bad-soft: #fde8e8;
+  --color-safety: #e07a00;
+  --color-vehicle: #00897b;
+  --color-priority: #b8860b;
+  --color-transit: #c79a00;
+  --color-marking: #546e7a;
+
+  --ease-rise: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-rise: rise 0.22s var(--ease-rise);
+  --animate-pop: pop 0.15s var(--ease-rise);
+  --animate-step: step 0.22s var(--ease-rise);
+  --animate-fade: fade 0.2s var(--ease-rise);
+  --animate-shimmer: shimmer 1.4s linear infinite;
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(24px); }
+  }
+  @keyframes pop {
+    from { opacity: 0; transform: scale(0.96) translateY(-4px); }
+  }
+  /* The next question arrives from the reading direction's far side. */
+  @keyframes step {
+    from { opacity: 0; transform: translateX(-24px); }
+  }
+  @keyframes fade {
+    from { opacity: 0; }
+  }
+  @keyframes shimmer {
+    to { background-position: -200% 0; }
+  }
+}
+
+/* The Android type scale (Theme.kt), with Hebrew's looser body leading. */
+@utility t-display { font-size: 34px; line-height: 40px; font-weight: 700; }
+@utility t-headline { font-size: 26px; line-height: 32px; font-weight: 700; }
+@utility t-headline-sm { font-size: 22px; line-height: 28px; font-weight: 700; }
+@utility t-title-lg { font-size: 20px; line-height: 26px; font-weight: 600; }
+@utility t-title { font-size: 17px; line-height: 26px; font-weight: 600; }
+@utility t-title-sm { font-size: 15px; line-height: 21px; font-weight: 500; }
+@utility t-body-lg { font-size: 16px; line-height: 25px; font-weight: 400; }
+@utility t-body { font-size: 14px; line-height: 21px; font-weight: 400; }
+@utility t-body-sm { font-size: 13px; line-height: 18px; font-weight: 400; }
+@utility t-label-lg { font-size: 15px; line-height: 20px; font-weight: 500; }
+@utility t-label { font-size: 13px; line-height: 16px; font-weight: 500; }
+@utility t-label-sm { font-size: 11px; line-height: 14px; font-weight: 500; }
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+/* How much of the viewport the app's own chrome takes, for everything that
+   sticks to it. On a phone the tabs sit at the bottom and the header scrolls
+   away; from tablet width up the tabs move into a header that stays. Mid-exam
+   the chrome is gone altogether. */
+:root {
+  --header-h: 0px;
+  --nav-h: calc(64px + env(safe-area-inset-bottom));
+  --bar-h: 0px;
+}
+@media (min-width: 48rem) {
+  :root {
+    --header-h: 68px;
+    --nav-h: 0px;
+  }
+}
+:root:has([data-chrome="focused"]) {
+  --header-h: 0px;
+  --nav-h: 0px;
+}
+:root:has([data-bottom-bar]) {
+  --bar-h: 72px;
+}
+
+html {
+  background: var(--color-page);
+  color: var(--color-ink);
+  scrollbar-gutter: stable;
+  -webkit-text-size-adjust: 100%;
+}
+/* An open sheet owns the scroll. */
+html:has(dialog[open]) {
+  overflow: hidden;
+}
+
+/* In the base layer, so a component can still opt out with a utility. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-road);
+    outline-offset: 2px;
+  }
+  .on-road :focus-visible {
+    outline-color: var(--color-white);
+  }
+  input[type="search"]::-webkit-search-cancel-button {
+    display: none;
+  }
+}
+
+@layer components {
+  /* One nav, two places: a bottom tab bar on a phone, inline in the header above. */
+  .mode-nav {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 30;
+    display: flex;
+    height: var(--nav-h);
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--color-white);
+    border-top: 1px solid var(--color-line);
+  }
+  .mode-link {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+    color: var(--color-ink-soft);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mode-icon {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 32px;
+    border-radius: 999px;
+    transition: background-color 0.2s var(--ease-rise), transform 0.15s var(--ease-rise);
+  }
+  .mode-link:hover .mode-icon { background: var(--color-page); }
+  .mode-link:active .mode-icon { transform: scale(0.94); }
+  .mode-link[aria-current="page"] { color: var(--color-road); }
+  .mode-link[aria-current="page"] .mode-icon { background: var(--color-road-tint); }
+
+  @media (min-width: 48rem) {
+    .mode-nav {
+      position: static;
+      height: auto;
+      padding: 0;
+      gap: 4px;
+      background: none;
+      border: 0;
+    }
+    .mode-link {
+      flex: none;
+      flex-direction: row;
+      gap: 8px;
+      padding-block: 8px;
+      padding-inline: 12px 16px;
+      border-radius: 999px;
+      font-size: 15px;
+      line-height: 20px;
+      color: rgb(255 255 255 / 0.8);
+      transition: background-color 0.15s var(--ease-rise), color 0.15s var(--ease-rise), transform 0.15s var(--ease-rise);
+    }
+    .mode-icon,
+    .mode-link:hover .mode-icon,
+    .mode-link[aria-current="page"] .mode-icon {
+      width: auto;
+      height: auto;
+      background: none;
+      transform: none;
+    }
+    .mode-link:hover { background: rgb(255 255 255 / 0.1); color: var(--color-white); }
+    .mode-link:active { transform: scale(0.97); }
+    .mode-link[aria-current="page"] { background: rgb(255 255 255 / 0.18); color: var(--color-white); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* The feedback bubble pins itself to the bottom corner, which on a phone is
+   where the tabs and the practice/exam action bar live. Unlayered on purpose:
+   it has to win over the widget's own utility classes. */
+[data-id="feedback-chat-bubble"] {
+  bottom: calc(var(--nav-h) + var(--bar-h) + 1rem);
+}
