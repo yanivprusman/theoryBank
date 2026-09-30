@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     id("android-flavors")
 }
 
@@ -20,6 +21,10 @@ val envFile = rootProject.file(".env")
 val envProps = Properties()
 if (envFile.exists()) envFile.inputStream().use { envProps.load(it) }
 val apiBaseUrl = envProps.getProperty("API_BASE_URL", "http://10.7.0.1:3159/")
+// The web app's Google client: Android sign-in asks Google for an id_token minted
+// for it, which the server verifies (/api/auth/token). Public, not a secret.
+val googleWebClientId = envProps.getProperty("GOOGLE_WEB_CLIENT_ID")
+    ?: throw GradleException("mobile/.env: GOOGLE_WEB_CLIENT_ID is not set (the web app's THEORYBANK_GOOGLE_CLIENT_ID)")
 
 android {
     namespace = "com.automatelinux.theoryBank"
@@ -32,6 +37,7 @@ android {
         versionCode = gitCommitCount
         versionName = "v${gitCommitCount} (${gitShortHash})"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
     buildTypes {
@@ -61,6 +67,13 @@ dependencies {
     implementation(project(":shared"))
     implementation(libs.kotlinx.datetime)
     implementation(libs.multiplatform.settings)
+    implementation(libs.kotlinx.serialization.json)
+
+    // Teachers tab: Google sign-in on the phone, and lesson sync + reminders
+    implementation(libs.credentials)
+    implementation(libs.credentials.play.services)
+    implementation(libs.googleid)
+    implementation(libs.work.runtime)
 
     // Compose BOM
     implementation(platform(libs.compose.bom))

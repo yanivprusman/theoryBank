@@ -210,7 +210,7 @@ function TeacherLessonRow({ lesson, reload }: { lesson: Lesson; reload: () => Pr
   async function move(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const data = new FormData(e.currentTarget)
-    if (await run('/api/lessons', 'PATCH', { id: lesson.id, date: String(data.get('date')), time: String(data.get('time')) })) {
+    if (await run('/api/lessons/move', 'POST', { id: lesson.id, date: String(data.get('date')), time: String(data.get('time')) })) {
       setMoving(false)
       await reload()
     }
@@ -249,7 +249,7 @@ function TeacherLessonRow({ lesson, reload }: { lesson: Lesson; reload: () => Pr
             data-id={`lesson-cancel-confirm-${lesson.id}`}
             disabled={busy}
             onClick={async () => {
-              if (await run('/api/lessons', 'DELETE', { id: lesson.id })) await reload()
+              if (await run('/api/lessons/cancel', 'POST', { id: lesson.id })) await reload()
             }}
             className={`${BUTTON} h-9 bg-bad-ink px-4 text-white hover:bg-bad`}
           >

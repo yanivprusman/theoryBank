@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Traffic
 import androidx.compose.material.icons.filled.Timer
@@ -35,6 +36,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,11 +81,14 @@ import kotlinx.serialization.json.Json
 //  Signs    — every sign in the official table: picture, meaning, and the questions on it
 //  Practice — shuffled questions, all four options, instant right/wrong
 //  Exam     — the real test's rules: 30 questions, 40 minutes, 26 to pass
+//  Teachers — driving teachers, lessons and reminders; needs the network and an
+//             account, so the platform supplies it (null where it has none)
 private enum class Mode(val label: String, val title: String, val icon: ImageVector) {
     Answers("תשובות", "כל השאלות והתשובות", Icons.AutoMirrored.Filled.MenuBook),
     Signs("תמרורים", "לוח התמרורים", Icons.Default.Traffic),
     Practice("תרגול", "תרגול עם משוב מיידי", Icons.Default.School),
     Exam("מבחן", "מבחן כמו האמיתי", Icons.Default.Timer),
+    Teachers("מורים", "מורים לנהיגה", Icons.Default.Person),
 }
 
 // Shared entry composable. The platform supplies the bundled question bank and
@@ -97,6 +102,9 @@ fun App(
     fontFamily: FontFamily,
     settings: Settings,
     loadImage: (String) -> ImageBitmap,
+    teachers: (@Composable (license: String) -> Unit)? = null,
+    // Set when something outside the app (a lesson notification) asks for the teachers tab.
+    openTeachers: Int = 0,
 ) {
     val questions = remember(questionsJson) {
         Json.decodeFromString<List<Question>>(questionsJson)
@@ -106,14 +114,23 @@ fun App(
     AppTheme(fontFamily) {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                Home(questions, signs, spots, settings, loadImage)
+                Home(questions, signs, spots, settings, loadImage, teachers, openTeachers)
             }
         }
     }
 }
 
 @Composable
-private fun Home(questions: List<Question>, signs: List<Sign>, spots: Map<String, List<SignSpot>>, settings: Settings, loadImage: (String) -> ImageBitmap) {
+private fun Home(
+    questions: List<Question>,
+    signs: List<Sign>,
+    spots: Map<String, List<SignSpot>>,
+    settings: Settings,
+    loadImage: (String) -> ImageBitmap,
+    teachers: (@Composable (license: String) -> Unit)?,
+    openTeachers: Int,
+) {
+    val modes = Mode.entries.filter { it != Mode.Teachers || teachers != null }
     var mode by rememberSaveable { mutableStateOf(Mode.Answers) }
     var license by rememberSaveable { mutableStateOf("C1") }
     val forLicense = remember(questions, license) { questions.filter { it.isFor(license) } }
@@ -121,6 +138,7 @@ private fun Home(questions: List<Question>, signs: List<Sign>, spots: Map<String
     val exam = remember(forLicense) { ExamSession(license, forLicense) }
     val book = remember(signs, forLicense, spots) { SignBook(signs, forLicense, spots) }
     var openSign by remember { mutableStateOf<Sign?>(null) }
+    LaunchedEffect(openTeachers) { if (openTeachers > 0 && teachers != null) mode = Mode.Teachers }
     // Mid-exam the chrome gets out of the way, like the real test.
     val focused = mode == Mode.Exam && exam.inProgress
 
@@ -128,7 +146,11 @@ private fun Home(questions: List<Question>, signs: List<Sign>, spots: Map<String
         AnimatedVisibility(!focused) {
             Header(
                 mode.title,
-                if (mode == Mode.Signs) "${signs.size} תמרורים" else "${forLicense.size} שאלות",
+                when (mode) {
+                    Mode.Signs -> "${signs.size} תמרורים"
+                    Mode.Teachers -> null
+                    else -> "${forLicense.size} שאלות"
+                },
                 license,
             ) { license = it }
         }
@@ -140,13 +162,14 @@ private fun Home(questions: List<Question>, signs: List<Sign>, spots: Map<String
                         Mode.Practice -> PracticeScreen(practice, loadImage)
                         Mode.Exam -> ExamScreen(exam, loadImage)
                         Mode.Signs -> SignsScreen(book, loadImage)
+                        Mode.Teachers -> teachers?.invoke(license)
                     }
                 }
             }
         }
         AnimatedVisibility(!focused) {
             NavigationBar(containerColor = Color.White, tonalElevation = 0.dp) {
-                Mode.entries.forEach { m ->
+                modes.forEach { m ->
                     NavigationBarItem(
                         selected = mode == m,
                         onClick = { mode = m },
@@ -169,7 +192,7 @@ private fun Home(questions: List<Question>, signs: List<Sign>, spots: Map<String
 }
 
 @Composable
-private fun Header(subtitle: String, count: String, license: String, onLicense: (String) -> Unit) {
+private fun Header(subtitle: String, count: String?, license: String, onLicense: (String) -> Unit) {
     Box(
         Modifier.fillMaxWidth()
             .background(Brush.verticalGradient(listOf(Palette.RoadBlueDark, Palette.RoadBlue)))
@@ -182,7 +205,7 @@ private fun Header(subtitle: String, count: String, license: String, onLicense: 
             Column(Modifier.weight(1f)) {
                 Text("מאגר התאוריה", style = MaterialTheme.typography.titleLarge, color = Color.White)
                 Text(
-                    "$subtitle · $count",
+                    if (count == null) subtitle else "$subtitle · $count",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.75f),
                 )
