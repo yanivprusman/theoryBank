@@ -6,6 +6,7 @@ import { ALL, DEFAULT_LICENSE, LICENSES, SignBook, isFor, licenseLabel, type Ban
 import { useSessions } from '@/lib/sessions'
 import { readStored, writeStored } from '@/lib/storage'
 import { MODES, modeAt, tabTitleOf } from '@/lib/modes'
+import { offlineLine, useOfflineCopy, type OfflineCopy } from './offline-copy'
 import AnswersScreen from './AnswersScreen'
 import { BankCtx, useBank } from './bank-context'
 import ExamScreen from './ExamScreen'
@@ -127,6 +128,8 @@ function Ready({ bank, license, children }: { bank: Bank; license: string; child
   const focused = mode.id === 'exam' && exam.inProgress
   const count = mode.id === 'signs' ? `${bank.signs.length} תמרורים` : `${questions.length} שאלות`
 
+  const offline = useOfflineCopy(bank)
+
   const openSign = useCallback((sign: Sign) => showSign(sign.n), [])
   const value = useMemo(
     () => ({ bank, license, questions, book, practice, exam, openSign }),
@@ -135,7 +138,7 @@ function Ready({ bank, license, children }: { bank: Bank; license: string; child
 
   return (
     <BankCtx.Provider value={value}>
-      <Chrome license={license} count={count} focused={focused}>
+      <Chrome license={license} count={count} focused={focused} offline={offline}>
         <Screen />
         {children}
       </Chrome>
@@ -200,15 +203,20 @@ function OpenSign() {
 
 // ── Chrome: header and tabs ─────────────────────────────────────────────────
 
+type Offline = { copy: OfflineCopy; justSaved: boolean; retry: () => void }
+
 function Chrome({
   license,
   count,
   focused = false,
+  offline,
   children,
 }: {
   license: string
   count: string | null
   focused?: boolean
+  // Known only once the bank is here: the copy is asked for after it.
+  offline?: Offline
   children: ReactNode
 }) {
   const mode = modeAt(usePathname())
@@ -216,6 +224,13 @@ function Chrome({
   useEffect(() => {
     document.title = tabTitleOf(mode)
   }, [mode])
+  const notice = !offline
+    ? null
+    : offline.justSaved
+      ? 'נשמר · המאגר זמין עכשיו גם ללא רשת'
+      : offline.copy.state === 'saving' || offline.copy.state === 'incomplete'
+        ? offlineLine(offline.copy)
+        : null
   return (
     <div className="flex min-h-dvh flex-col" data-chrome={focused ? 'focused' : 'shown'}>
       {!focused && (
@@ -224,10 +239,17 @@ function Chrome({
             <SignMark size={40} />
             <div className="min-w-0 flex-1 lg:flex-none">
               <p className="t-title-lg">מאגר התאוריה</p>
-              <h1 className="t-body-sm truncate text-white/80">
+              {/* While the offline copy is being saved — and for a moment after, or
+                  while it is incomplete — the line under the title says so. */}
+              <h1 className={notice ? 'sr-only' : 't-body-sm truncate text-white/80'}>
                 {mode.title}
                 {count && ` · ${count}`}
               </h1>
+              {notice && (
+                <p role="status" data-id="offline-notice" className="t-body-sm truncate text-white/80">
+                  {notice}
+                </p>
+              )}
             </div>
             <nav className="mode-nav lg:ms-5" aria-label="מצבי לימוד">
               {MODES.map(({ id, href, label }) => {
@@ -258,7 +280,7 @@ function Chrome({
               })}
             </nav>
             <span className="hidden flex-1 lg:block" />
-            <LicensePicker license={license} />
+            <LicensePicker license={license} offline={offline} />
           </div>
         </header>
       )}
@@ -269,7 +291,7 @@ function Chrome({
 
 // Licence is chosen once and rarely changed, so it lives in a compact pill
 // rather than taking a row of the screen.
-function LicensePicker({ license }: { license: string }) {
+function LicensePicker({ license, offline }: { license: string; offline?: Offline }) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
 
@@ -307,7 +329,7 @@ function LicensePicker({ license }: { license: string }) {
         <div
           role="menu"
           aria-label="סוג הרישיון"
-          className="absolute end-0 top-full z-40 mt-2 w-52 origin-top animate-pop rounded-2xl border border-line bg-white py-2 text-ink shadow-xl"
+          className="absolute end-0 top-full z-40 mt-2 w-60 origin-top animate-pop rounded-2xl border border-line bg-white py-2 text-ink shadow-xl"
         >
           {LICENSES.map((option) => (
             <button
@@ -326,7 +348,35 @@ function LicensePicker({ license }: { license: string }) {
               {option === license && <CheckIcon size={20} className="text-road" />}
             </button>
           ))}
+          {offline && <OfflineRow {...offline} />}
         </div>
+      )}
+    </div>
+  )
+}
+
+// Where the offline copy stands, always findable: a dot for the state, the
+// words in ink, and a way to try again when it is incomplete.
+const COPY_DOT = { unavailable: 'bg-line-strong', checking: 'bg-road', saving: 'bg-road', ready: 'bg-ok', incomplete: 'bg-bad' }
+
+function OfflineRow({ copy, retry }: Offline) {
+  return (
+    <div data-id="offline-status" className="t-body-sm mt-2 flex items-start gap-2 border-t border-line px-4 pt-3 pb-1 text-ink-soft">
+      <span className={`mt-[5px] size-2 shrink-0 rounded-full ${COPY_DOT[copy.state]}`} />
+      <span className="min-w-0 flex-1">
+        {offlineLine(copy)}
+        {copy.state === 'saving' && ` (${copy.done} מתוך ${copy.total} תמונות)`}
+        {copy.state === 'incomplete' && copy.missing !== null && ` · חסרים ${copy.missing} קבצים`}
+      </span>
+      {copy.state === 'incomplete' && (
+        <button
+          type="button"
+          data-id="offline-retry"
+          onClick={retry}
+          className="t-label -my-1 cursor-pointer rounded-lg px-2 py-1.5 text-road transition-colors duration-150 ease-rise hover:bg-road-soft active:bg-road-tint"
+        >
+          נסה שוב
+        </button>
       )}
     </div>
   )
