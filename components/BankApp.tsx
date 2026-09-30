@@ -59,9 +59,14 @@ type Load = { state: 'loading' } | { state: 'failed'; reason: string } | { state
 // The bank is the Android app's own three files, fetched as they are: static,
 // compressed, and revalidated by the browser instead of downloaded again.
 async function fetchBankFile<T>(file: string, signal: AbortSignal): Promise<T> {
-  const response = await fetch(`/bank/${file}`, { signal })
-  if (!response.ok) throw new Error(`${file}: השרת החזיר ${response.status}`)
-  return (await response.json()) as T
+  try {
+    const response = await fetch(`/bank/${file}`, { signal })
+    if (!response.ok) throw new Error(`השרת החזיר ${response.status}`)
+    return (await response.json()) as T
+  } catch (error) {
+    // Says which of the three files it was: the browser's own message doesn't.
+    throw new Error(`${file}: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
+  }
 }
 
 export default function BankApp({ pictures, children }: { pictures: Bank['pictures']; children: ReactNode }) {
@@ -205,17 +210,17 @@ function Chrome({
   return (
     <div className="flex min-h-dvh flex-col" data-chrome={focused ? 'focused' : 'shown'}>
       {!focused && (
-        <header className="on-road z-30 bg-linear-to-b from-road-dark to-road text-white md:sticky md:top-0">
-          <div className="mx-auto flex max-w-[1120px] items-center gap-3 px-4 py-3 md:h-(--header-h) md:px-6 md:py-0">
+        <header className="on-road z-30 bg-linear-to-b from-road-dark to-road text-white lg:sticky lg:top-0">
+          <div className="mx-auto flex max-w-[1120px] items-center gap-3 px-4 py-3 md:px-6 lg:h-(--header-h) lg:py-0">
             <SignMark size={40} />
-            <div className="min-w-0 flex-1 md:flex-none">
+            <div className="min-w-0 flex-1 lg:flex-none">
               <p className="t-title-lg">מאגר התאוריה</p>
               <h1 className="t-body-sm truncate text-white/80">
                 {mode.title}
                 {count && ` · ${count}`}
               </h1>
             </div>
-            <nav className="mode-nav md:ms-5" aria-label="מצבי לימוד">
+            <nav className="mode-nav lg:ms-5" aria-label="מצבי לימוד">
               {MODES.map(({ id, href, label, Icon }) => {
                 const active = href === mode.href
                 return (
@@ -235,7 +240,7 @@ function Chrome({
                 )
               })}
             </nav>
-            <span className="hidden flex-1 md:block" />
+            <span className="hidden flex-1 lg:block" />
             <LicensePicker license={license} />
           </div>
         </header>

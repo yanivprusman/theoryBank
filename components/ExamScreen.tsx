@@ -175,7 +175,7 @@ function ExamRunning({ exam, run }: { exam: Exam; run: ExamRun }) {
             <GridViewIcon />
           </button>
           <p className="t-body-sm hidden flex-1 text-center text-ink-soft pointer-fine:md:block">
-            מקשים 1–4 לבחירה · חיצים למעבר בין שאלות
+            מקשים 1 עד 4 לבחירה · חיצים למעבר בין שאלות
           </p>
           <span className="flex-1 pointer-fine:md:hidden" />
           {index < last ? (

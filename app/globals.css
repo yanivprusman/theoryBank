@@ -4,8 +4,8 @@
 
 /* Palette taken from the road, the one the Android app wears (ui/theme/Theme.kt):
    information-sign blue, warning-sign red, and the yellow gov.il paints on the
-   correct answer. The -ink greens and reds are the same hues, darkened until
-   they carry text and white-on-fill at AA. */
+   correct answer. The -ink greens, reds and orange are the same hues, darkened
+   until they carry text and white-on-fill at AA. */
 @theme {
   --font-sans: var(--font-rubik), system-ui, sans-serif;
 
@@ -28,6 +28,7 @@
   --color-bad-ink: #b3261e;
   --color-bad-soft: #fde8e8;
   --color-safety: #e07a00;
+  --color-safety-ink: #a85a00;
   --color-vehicle: #00897b;
   --color-priority: #b8860b;
   --color-transit: #c79a00;
@@ -79,15 +80,16 @@
 }
 
 /* How much of the viewport the app's own chrome takes, for everything that
-   sticks to it. On a phone the tabs sit at the bottom and the header scrolls
-   away; from tablet width up the tabs move into a header that stays. Mid-exam
-   the chrome is gone altogether. */
+   sticks to it. On a phone or an upright tablet the tabs sit at the bottom and
+   the header scrolls away; from 1024px up — where title, tabs and licence fit
+   one row — the tabs move into a header that stays. Mid-exam the chrome is
+   gone altogether. */
 :root {
   --header-h: 0px;
   --nav-h: calc(64px + env(safe-area-inset-bottom));
   --bar-h: 0px;
 }
-@media (min-width: 48rem) {
+@media (min-width: 64rem) {
   :root {
     --header-h: 68px;
     --nav-h: 0px;
@@ -166,7 +168,7 @@ html:has(dialog[open]) {
   .mode-link[aria-current="page"] { color: var(--color-road); }
   .mode-link[aria-current="page"] .mode-icon { background: var(--color-road-tint); }
 
-  @media (min-width: 48rem) {
+  @media (min-width: 64rem) {
     .mode-nav {
       position: static;
       height: auto;

@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Bank, Question } from './bank'
 
@@ -23,11 +23,14 @@ function jpegSize(data: Buffer, file: string): [number, number] {
 // The pixel size of every question picture, so the page can hold a picture's
 // place before it arrives: nothing jumps under a finger about to tap an answer.
 // A question that names a picture the assets don't hold fails here, loudly.
-export async function pictureSizes(): Promise<Bank['pictures']> {
-  const questions = JSON.parse(await readFile(path.join(ASSETS, 'questions.json'), 'utf8')) as Question[]
+//
+// Synchronous on purpose (about 10ms for all 599). An awaiting layout streams:
+// the shell goes out first, the browser starts hydrating, and in `next dev` the
+// layout's own chunk — asked for while the document was still arriving — was
+// cancelled on about every other hard load in headless Chrome (ChunkLoadError,
+// blank page).
+export function pictureSizes(): Bank['pictures'] {
+  const questions = JSON.parse(readFileSync(path.join(ASSETS, 'questions.json'), 'utf8')) as Question[]
   const files = questions.flatMap((q) => (q.i ? [q.i] : []))
-  const sizes = await Promise.all(
-    files.map(async (file) => [file, jpegSize(await readFile(path.join(ASSETS, 'img', file)), file)] as const),
-  )
-  return Object.fromEntries(sizes)
+  return Object.fromEntries(files.map((file) => [file, jpegSize(readFileSync(path.join(ASSETS, 'img', file)), file)]))
 }

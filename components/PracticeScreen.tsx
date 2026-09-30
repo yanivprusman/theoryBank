@@ -90,8 +90,8 @@ function StatsBar({ practice }: { practice: Practice }) {
       <StatPill label="נכונות" color="var(--color-ok-ink)">
         {practice.correct}/{practice.answered}
       </StatPill>
-      <StatPill label="ברצף" color="var(--color-safety)">
-        {practice.streak >= 3 && <FireIcon size={16} />}
+      <StatPill label="ברצף" color="var(--color-safety-ink)">
+        {practice.streak >= 3 && <FireIcon size={16} className="text-safety" />}
         {practice.streak}
       </StatPill>
       <span className="flex-1" />
@@ -130,15 +130,20 @@ function BottomAction({ practice }: { practice: Practice }) {
   const right = picked === item.k
   const tone = picked === null ? 'bg-white' : revealed ? 'bg-highlight-soft' : right ? 'bg-ok-soft' : 'bg-bad-soft'
   return (
-    <div data-bottom-bar className="sticky bottom-(--nav-h) z-10 mt-auto md:pb-4">
+    // Edge to edge above the tabs on a phone; a card of its own under the
+    // two columns on a wide screen.
+    <div
+      data-bottom-bar
+      className={`sticky bottom-(--nav-h) z-10 mt-auto border-t border-line transition-colors duration-200 ease-rise lg:border-0 lg:bg-transparent lg:pb-4 ${tone}`}
+    >
       <div
-        className={`mx-auto flex min-h-[72px] w-full max-w-[720px] items-center gap-2 border-t border-line px-4 py-3 transition-colors duration-200 ease-rise md:w-[calc(100%-2rem)] md:max-w-[688px] md:rounded-2xl lg:w-[calc(100%-3rem)] lg:max-w-[992px] md:border md:shadow-[0_8px_24px_-12px_var(--color-ink-soft)] ${tone}`}
+        className={`mx-auto flex min-h-[72px] w-full max-w-[720px] items-center gap-2 px-4 py-3 transition-colors duration-200 ease-rise lg:w-[calc(100%-3rem)] lg:max-w-[992px] lg:rounded-2xl lg:border lg:border-line lg:shadow-[0_8px_24px_-12px_var(--color-ink-soft)] ${tone}`}
       >
         {picked === null ? (
           <>
             <p className="t-body min-w-0 flex-1 text-ink-soft">
               שאלה {practice.index + 1} מתוך {practice.deck.length}
-              <KeyHint>מקשים 1–4 לבחירה</KeyHint>
+              <KeyHint>מקשים 1 עד 4 לבחירה</KeyHint>
             </p>
             <Button tone="quiet" id="practice-skip" onClick={practice.next} className="h-11 px-3.5">
               דלג
