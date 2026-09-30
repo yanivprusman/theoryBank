@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useSyncExternalStore } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import type { Me } from '@/lib/accounts'
 
 // The signed-in account, shared by the header and the teachers tab. Asked for
@@ -52,12 +52,19 @@ export function signInHref(next: string): string {
 }
 
 export async function signOut(): Promise<void> {
+  // This browser's lesson reminders were the account's, not the browser's: the
+  // next person to sign in here must not get them.
+  const subscription = 'serviceWorker' in navigator ? await (await navigator.serviceWorker.getRegistration())?.pushManager.getSubscription() : null
+  if (subscription) {
+    await send('/api/push', 'DELETE', { endpoint: subscription.endpoint })
+    await subscription.unsubscribe()
+  }
   await fetch('/api/auth/signout', { method: 'POST' })
   await refreshMe()
 }
 
-/** POST/DELETE JSON to one of the account routes; the server's Hebrew reason on failure. */
-export async function send(url: string, method: 'POST' | 'DELETE', body?: unknown): Promise<{ ok: true } | { ok: false; message: string; field?: string }> {
+/** POST/PATCH/DELETE JSON to one of the account routes; the server's Hebrew reason on failure. */
+export async function send(url: string, method: 'POST' | 'PATCH' | 'DELETE', body?: unknown): Promise<{ ok: true } | { ok: false; message: string; field?: string }> {
   try {
     const response = await fetch(url, {
       method,
@@ -70,4 +77,20 @@ export async function send(url: string, method: 'POST' | 'DELETE', body?: unknow
   } catch {
     return { ok: false, message: 'אין חיבור לרשת. בדוק את החיבור ונסה שוב.' }
   }
+}
+
+// Acts, then refreshes the account; a refusal is shown where the action was.
+export function useAction() {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const run = async (url: string, method: 'POST' | 'PATCH' | 'DELETE', body?: unknown) => {
+    setBusy(true)
+    setError(null)
+    const reply = await send(url, method, body)
+    if (!reply.ok) setError(reply.message)
+    await refreshMe()
+    setBusy(false)
+    return reply.ok
+  }
+  return { busy, error, run }
 }

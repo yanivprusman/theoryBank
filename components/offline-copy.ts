@@ -62,9 +62,14 @@ function initial(): OfflineCopy {
 
 // A worker an earlier production build left on this address would answer a dev
 // page from its copy whenever the dev server is down — a dead skeleton instead
-// of the browser's own error. A dev build removes it, and its copy.
+// of the browser's own error. A dev build removes it, and its copy. The dev
+// worker (/sw.js?mode=dev, registered for lesson notifications) keeps no copy
+// and stays.
 async function dropWorker() {
-  for (const registration of await navigator.serviceWorker.getRegistrations()) await registration.unregister()
+  for (const registration of await navigator.serviceWorker.getRegistrations()) {
+    const script = registration.active?.scriptURL ?? registration.installing?.scriptURL ?? registration.waiting?.scriptURL ?? ''
+    if (!script.includes('mode=dev')) await registration.unregister()
+  }
   await caches.delete(COPY)
 }
 

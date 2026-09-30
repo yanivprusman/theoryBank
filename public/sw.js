@@ -20,6 +20,11 @@ const BANK_FILES = ['/bank/questions.json', '/bank/signs.json', '/bank/sign-spot
 const UNREACHABLE = new Set([502, 503, 504])
 const DOWNLOADS_AT_ONCE = 8
 
+// Registered as /sw.js?mode=dev by a dev build: it then only carries lesson
+// notifications, and keeps no offline copy — a dev page answered from a copy
+// would hide the dev server being down.
+const DEV = new URL(self.location.href).searchParams.get('mode') === 'dev'
+
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()))
 
@@ -34,6 +39,7 @@ const keyOfPath = (path) => self.location.origin + path
 const keepable = (response) => response.ok && response.type === 'basic'
 
 self.addEventListener('fetch', (event) => {
+  if (DEV) return
   const request = event.request
   if (request.method !== 'GET') return
   const url = new URL(request.url)
@@ -88,7 +94,49 @@ async function copyFirst(event, request, url) {
 // lists of paths. Progress and the verdict go back to that page.
 
 self.addEventListener('message', (event) => {
-  if (event.data?.type === 'keep-offline') event.waitUntil(keepOffline(event.data, event.source))
+  if (event.data?.type === 'keep-offline' && !DEV) event.waitUntil(keepOffline(event.data, event.source))
+})
+
+// ── Lesson notifications ────────────────────────────────────────────────────
+// The server sends {title, body, url, tag} (lib/push.ts). One tag per lesson,
+// so a newer message about the same lesson replaces the older one.
+
+self.addEventListener('push', (event) => {
+  let message
+  try {
+    message = event.data.json()
+  } catch {
+    return
+  }
+  event.waitUntil(
+    self.registration.showNotification(message.title, {
+      body: message.body,
+      tag: message.tag,
+      renotify: true,
+      dir: 'rtl',
+      lang: 'he',
+      icon: '/notification-icon.png',
+      data: { url: message.url },
+    }),
+  )
+})
+
+// A tap opens the app on the page the message is about — in a window that is
+// already open when there is one.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const target = new URL(event.notification.data?.url ?? '/', self.location.origin).href
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      const open = windows.find((w) => new URL(w.url).origin === self.location.origin)
+      if (open) {
+        await open.focus()
+        return open.navigate(target)
+      }
+      return self.clients.openWindow(target)
+    })(),
+  )
 })
 
 async function fetchToKeep(cache, path) {

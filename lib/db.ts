@@ -98,4 +98,52 @@ async function createSchema() {
       FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY (teacher_id) REFERENCES teachers(user_id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`)
+
+  // A driving lesson a teacher scheduled for one of their students. starts_at is
+  // UTC; the screens show and take Israel time. A cancelled lesson is kept, so
+  // the cancellation can be told and the history stays.
+  await p.execute(`
+    CREATE TABLE IF NOT EXISTS lessons (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      teacher_id INT NOT NULL,
+      student_id INT NOT NULL,
+      starts_at DATETIME NOT NULL,
+      note VARCHAR(300) NOT NULL DEFAULT '',
+      status ENUM('scheduled', 'cancelled') NOT NULL DEFAULT 'scheduled',
+      scheduled_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_starts (status, starts_at),
+      INDEX idx_teacher (teacher_id, starts_at),
+      INDEX idx_student (student_id, starts_at),
+      FOREIGN KEY (teacher_id) REFERENCES teachers(user_id) ON DELETE CASCADE,
+      FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`)
+
+  // One row per browser that turned reminders on. A push service answering 404
+  // or 410 means the browser dropped it, and the row is deleted.
+  await p.execute(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      endpoint VARCHAR(700) NOT NULL,
+      p256dh VARCHAR(200) NOT NULL,
+      auth VARCHAR(100) NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_endpoint (endpoint(255)),
+      INDEX idx_user (user_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`)
+
+  // Which timed reminder went out for which lesson, and when it was due. The
+  // row is claimed BEFORE sending, so two servers (or a restart) never send the
+  // same reminder twice; `due` ties it to the lesson's time, so moving the
+  // lesson makes its reminders due again.
+  await p.execute(`
+    CREATE TABLE IF NOT EXISTS reminders_sent (
+      lesson_id INT NOT NULL,
+      kind ENUM('evening', 'soon') NOT NULL,
+      due DATETIME NOT NULL,
+      sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (lesson_id, kind, due),
+      FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`)
 }

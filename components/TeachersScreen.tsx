@@ -4,9 +4,10 @@ import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ALL } from '@/lib/bank'
 import type { Me, Teacher } from '@/lib/accounts'
-import { refreshMe, send, signInHref, useAccount } from './account'
+import { refreshMe, signInHref, useAccount, useAction } from './account'
 import { useBank } from './bank-context'
 import { CallIcon, ChatIcon, CheckIcon, PersonIcon, SchoolIcon, TimerIcon, TrafficIcon } from './icons'
+import { RemindersRow, StudentLessons, TeacherLessons, useLessons } from './Lessons'
 import TeacherForm from './TeacherForm'
 import { Avatar, BUTTON, BUTTON_TONE, ChipRow, type Chip } from './ui'
 
@@ -50,8 +51,12 @@ export default function TeachersScreen() {
       <Suspense fallback={null}>
         <SignInNotice />
       </Suspense>
-      {me?.teacher && <MyListing me={me} />}
-      {me?.myTeacher && <MyTeacher teacher={me.myTeacher} />}
+      {me && (me.teacher?.status === 'approved' || me.myTeacher?.accepted) ? <WithLessons me={me} /> : (
+        <>
+          {me?.teacher && <MyListing me={me} />}
+          {me?.myTeacher && <MyTeacher teacher={me.myTeacher} />}
+        </>
+      )}
       {load.state === 'loading' && <div role="status" aria-label="טוען את רשימת המורים" className="h-24" />}
       {load.state === 'failed' && <LoadFailed reason={load.reason} onRetry={retry} />}
       {load.state === 'ready' &&
@@ -105,25 +110,23 @@ function Box({ children, id }: { children: ReactNode; id: string }) {
   )
 }
 
-// Acts, then refreshes the account; a refusal is shown where the action was.
-function useAction() {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const run = async (url: string, method: 'POST' | 'DELETE', body?: unknown) => {
-    setBusy(true)
-    setError(null)
-    const reply = await send(url, method, body)
-    if (!reply.ok) setError(reply.message)
-    await refreshMe()
-    setBusy(false)
-    return reply.ok
-  }
-  return { busy, error, run }
+// Lessons are asked for once, for whoever has any: an approved teacher, or a
+// student their teacher accepted. Each panel shows its own side of them.
+type LessonsProp = ReturnType<typeof useLessons>
+
+function WithLessons({ me }: { me: SignedIn }) {
+  const lessons = useLessons()
+  return (
+    <>
+      {me.teacher && <MyListing me={me} lessons={lessons} />}
+      {me.myTeacher && <MyTeacher teacher={me.myTeacher} me={me} lessons={lessons} />}
+    </>
+  )
 }
 
 // ── For students ────────────────────────────────────────────────────────────
 
-function MyTeacher({ teacher }: { teacher: NonNullable<SignedIn['myTeacher']> }) {
+function MyTeacher({ teacher, me, lessons }: { teacher: NonNullable<SignedIn['myTeacher']>; me?: SignedIn; lessons?: LessonsProp }) {
   const { busy, error, run } = useAction()
   return (
     <Box id="my-teacher">
@@ -149,6 +152,13 @@ function MyTeacher({ teacher }: { teacher: NonNullable<SignedIn['myTeacher']> })
         {teacher.accepted ? 'לעזוב את המורה' : 'לבטל את הבקשה'}
       </button>
       {error && <p className="t-body mt-2 text-bad-ink">{error}</p>}
+      {teacher.accepted && me && lessons && (
+        <>
+          {lessons.lessons && <StudentLessons lessons={lessons.lessons.filter((l) => l.student.id === me.user.id)} />}
+          {lessons.failed && <p className="t-body mt-3 text-bad-ink">השיעורים לא נטענו.</p>}
+          <RemindersRow />
+        </>
+      )}
     </Box>
   )
 }
@@ -274,7 +284,7 @@ const STATUS_LINE = {
 }
 
 // The teacher's own corner: where the request stands, and once listed, who joined.
-function MyListing({ me }: { me: SignedIn }) {
+function MyListing({ me, lessons }: { me: SignedIn; lessons?: LessonsProp }) {
   const teacher = me.teacher!
   if (teacher.status !== 'approved') {
     return (
@@ -314,6 +324,16 @@ function MyListing({ me }: { me: SignedIn }) {
           ))}
         </ul>
       )}
+      {lessons && mine.length > 0 && (
+        <div className="mt-6 border-t border-line pt-5">
+          <h2 className="t-headline-sm">שיעורים</h2>
+          {lessons.lessons && (
+            <TeacherLessons students={mine} lessons={lessons.lessons.filter((l) => l.teacher.id === me.user.id)} reload={lessons.reload} />
+          )}
+          {lessons.failed && <p className="t-body mt-3 text-bad-ink">השיעורים לא נטענו.</p>}
+        </div>
+      )}
+      {lessons && <RemindersRow />}
     </Box>
   )
 }
