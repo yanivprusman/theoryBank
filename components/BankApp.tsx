@@ -7,6 +7,7 @@ import { useSessions } from '@/lib/sessions'
 import { readStored, writeStored } from '@/lib/storage'
 import { MODES, modeAt, tabTitleOf } from '@/lib/modes'
 import { offlineLine, useOfflineCopy, type OfflineCopy } from './offline-copy'
+import AccountButton from './AccountButton'
 import AnswersScreen from './AnswersScreen'
 import { BankCtx, useBank } from './bank-context'
 import ExamScreen from './ExamScreen'
@@ -282,6 +283,7 @@ function Chrome({
             </nav>
             <span className="hidden flex-1 lg:block" />
             <LicensePicker license={license} offline={offline} />
+            <AccountButton />
           </div>
         </header>
       )}

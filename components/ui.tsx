@@ -3,7 +3,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { answerOf, categoryColor, type Question, type Sign } from '@/lib/bank'
 import { useBank } from './bank-context'
-import { CheckCircleIcon, CheckIcon, CloseIcon, SearchIcon } from './icons'
+import { CheckCircleIcon, CheckIcon, CloseIcon, PersonIcon, SearchIcon } from './icons'
 
 // A white card on the page, the one container every screen uses.
 export function Panel({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -327,5 +327,20 @@ export function Button({
     <button type="button" data-id={id} className={`${BUTTON} ${BUTTON_TONE[tone]} ${className}`} {...rest}>
       {children}
     </button>
+  )
+}
+
+// A Google profile picture, or a plain person where there is none.
+export function Avatar({ picture, size }: { picture: string; size: number }) {
+  if (!picture) {
+    return (
+      <span className="flex shrink-0 items-center justify-center rounded-full bg-road-soft text-road" style={{ width: size, height: size }}>
+        <PersonIcon size={Math.round(size * 0.6)} />
+      </span>
+    )
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- a Google profile picture, served by Google
+    <img src={picture} alt="" width={size} height={size} referrerPolicy="no-referrer" className="shrink-0 rounded-full" />
   )
 }
