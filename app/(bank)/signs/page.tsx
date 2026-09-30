@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
-import SignsScreen from '@/components/SignsScreen'
+import { MODES } from '@/lib/modes'
 
-export const metadata: Metadata = { title: 'לוח התמרורים' }
+export const metadata: Metadata = { title: MODES.find((m) => m.id === 'signs')!.tabTitle }
 
-export default function SignsPage() {
-  return <SignsScreen />
+// The screen itself is drawn by the shell, from the address (see BankApp).
+export default function Page() {
+  return null
 }

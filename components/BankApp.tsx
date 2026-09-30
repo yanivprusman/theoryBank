@@ -1,27 +1,31 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { ALL, DEFAULT_LICENSE, LICENSES, SignBook, isFor, licenseLabel, type Bank, type Question, type Sign } from '@/lib/bank'
 import { useSessions } from '@/lib/sessions'
 import { readStored, writeStored } from '@/lib/storage'
+import { MODES, modeAt, tabTitleOf } from '@/lib/modes'
+import AnswersScreen from './AnswersScreen'
 import { BankCtx, useBank } from './bank-context'
+import ExamScreen from './ExamScreen'
 import { CheckIcon, ExpandMoreIcon, MenuBookIcon, SchoolIcon, SignMark, TimerIcon, TrafficIcon } from './icons'
+import PracticeScreen from './PracticeScreen'
 import { SignSheet } from './SignSheet'
+import SignsScreen from './SignsScreen'
 import { Button, COLUMN, Panel } from './ui'
 
-// Three ways through the same official bank, and the sign table behind it:
-//  Answers  — read every question with only the correct answer (the yellow one)
-//  Signs    — every sign in the official table: picture, meaning, and the questions on it
-//  Practice — shuffled questions, all four options, instant right/wrong
-//  Exam     — the real test's rules: 30 questions, 40 minutes, 26 to pass
-const MODES = [
-  { id: 'answers', href: '/', label: 'תשובות', title: 'כל השאלות והתשובות', Icon: MenuBookIcon },
-  { id: 'signs', href: '/signs', label: 'תמרורים', title: 'לוח התמרורים', Icon: TrafficIcon },
-  { id: 'practice', href: '/practice', label: 'תרגול', title: 'תרגול עם משוב מיידי', Icon: SchoolIcon },
-  { id: 'exam', href: '/exam', label: 'מבחן', title: 'מבחן כמו האמיתי', Icon: TimerIcon },
-] as const
+const MODE_ICONS = { answers: MenuBookIcon, signs: TrafficIcon, practice: SchoolIcon, exam: TimerIcon }
+const SCREENS = { answers: AnswersScreen, signs: SignsScreen, practice: PracticeScreen, exam: ExamScreen }
+
+// The four screens are one page. Moving between them changes the address with
+// the History API — Next keeps `usePathname` in step — and the shell draws the
+// screen that address names. No request leaves the browser, so the practice
+// score and a running exam survive the switch, and it works with no network.
+function goTo(href: string) {
+  window.history.pushState(null, '', href)
+  window.scrollTo(0, 0)
+}
 
 // ── Licence ─────────────────────────────────────────────────────────────────
 // Chosen once and rarely changed, so it is remembered between visits. Kept to
@@ -117,10 +121,11 @@ function Ready({ bank, license, children }: { bank: Bank; license: string; child
   const questions = useMemo(() => bank.questions.filter((q) => isFor(q, license)), [bank, license])
   const book = useMemo(() => new SignBook(bank.signs, questions, bank.spots), [bank, questions])
   const { practice, exam } = useSessions(license, questions)
-  const pathname = usePathname()
+  const mode = modeAt(usePathname())
+  const Screen = SCREENS[mode.id]
   // Mid-exam the chrome gets out of the way, like the real test.
-  const focused = pathname === '/exam' && exam.inProgress
-  const count = pathname === '/signs' ? `${bank.signs.length} תמרורים` : `${questions.length} שאלות`
+  const focused = mode.id === 'exam' && exam.inProgress
+  const count = mode.id === 'signs' ? `${bank.signs.length} תמרורים` : `${questions.length} שאלות`
 
   const openSign = useCallback((sign: Sign) => showSign(sign.n), [])
   const value = useMemo(
@@ -131,6 +136,7 @@ function Ready({ bank, license, children }: { bank: Bank; license: string; child
   return (
     <BankCtx.Provider value={value}>
       <Chrome license={license} count={count} focused={focused}>
+        <Screen />
         {children}
       </Chrome>
       <Suspense fallback={null}>
@@ -205,8 +211,11 @@ function Chrome({
   focused?: boolean
   children: ReactNode
 }) {
-  const pathname = usePathname()
-  const mode = MODES.find((m) => m.href === pathname) ?? MODES[0]
+  const mode = modeAt(usePathname())
+  // A hard load gets its tab title from the page's metadata; a switch gets it here.
+  useEffect(() => {
+    document.title = tabTitleOf(mode)
+  }, [mode])
   return (
     <div className="flex min-h-dvh flex-col" data-chrome={focused ? 'focused' : 'shown'}>
       {!focused && (
@@ -221,22 +230,30 @@ function Chrome({
               </h1>
             </div>
             <nav className="mode-nav lg:ms-5" aria-label="מצבי לימוד">
-              {MODES.map(({ id, href, label, Icon }) => {
+              {MODES.map(({ id, href, label }) => {
                 const active = href === mode.href
+                const Icon = MODE_ICONS[id]
                 return (
-                  <Link
+                  <a
                     key={id}
                     href={href}
                     data-id={`mode-${id}`}
                     data-active-tab={active ? label : undefined}
                     aria-current={active ? 'page' : undefined}
                     className="mode-link"
+                    onClick={(e) => {
+                      // A plain click switches in place; anything else (new tab,
+                      // new window, download) is the browser's to handle.
+                      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+                      e.preventDefault()
+                      if (!active) goTo(href)
+                    }}
                   >
                     <span className="mode-icon">
                       <Icon />
                     </span>
                     {label}
-                  </Link>
+                  </a>
                 )
               })}
             </nav>

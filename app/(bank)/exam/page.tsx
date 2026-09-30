@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
-import ExamScreen from '@/components/ExamScreen'
+import { MODES } from '@/lib/modes'
 
-export const metadata: Metadata = { title: 'מבחן' }
+export const metadata: Metadata = { title: MODES.find((m) => m.id === 'exam')!.tabTitle }
 
-export default function ExamPage() {
-  return <ExamScreen />
+// The screen itself is drawn by the shell, from the address (see BankApp).
+export default function Page() {
+  return null
 }
